@@ -1,3 +1,4 @@
+# Apex Quant-Terminal v1.2.0 Compose Specification
 services:
   apex-terminal:
     build: .
@@ -8,5 +9,5 @@ services:
       - ./config:/app/config
     environment:
       - PYTHONUNBUFFERED=1
+      - APEX_ENV=production
     restart: unless-stopped
-

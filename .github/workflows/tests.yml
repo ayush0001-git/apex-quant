@@ -32,3 +32,7 @@ jobs:
     - name: Run Pytest Quality Suite
       run: |
         pytest -v --maxfail=1
+
+    - name: Run TCA Calibration Script
+      run: |
+        python scripts/run_tca.py

@@ -4,6 +4,7 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-005571.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Architecture](https://img.shields.io/badge/Architecture-Hexagonal%20(Ports%20%26%20Adapters)-orange.svg)](docs/ARCHITECTURE.md)
+[![Release v1.2.0](https://img.shields.io/badge/Release-v1.2.0-success.svg)](https://github.com/ayush0001-git/apex-quant)
 [![ADRs](https://img.shields.io/badge/Architecture%20Decisions-5%20Accepted%20ADRs-blueviolet.svg)](docs/adr/)
 [![Market](https://img.shields.io/badge/Market-NSE%20%2F%20BSE%20Equities-red.svg)](https://www.nseindia.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

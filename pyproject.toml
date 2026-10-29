@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apex-quant"
-version = "1.0.0"
+version = "1.2.0"
 description = "Institutional-Grade Quantitative Trading & Decision-Support Terminal for NSE/BSE Equities"
 readme = "README.md"
 authors = [{ name = "Apex Quant Labs" }]
@@ -19,6 +19,7 @@ dependencies = [
     "pandas>=2.0.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
+    "hmmlearn>=0.3.0",
     "httpx>=0.24.0",
     "aiohttp>=3.9.0",
     "jinja2>=3.1.0",
@@ -34,4 +35,3 @@ test = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-
