@@ -145,7 +145,15 @@ Apex Quant exposes a clean, read-only REST and WebSocket surface via FastAPI for
 | `GET` | `/api/v1/market/bars` | Normalized OHLCV candlestick feed with causality verification |
 | `GET` | `/api/v1/signals/active` | Current approved swing setups with bracket order parameters |
 | `POST`| `/api/v1/advisor/chat` | Conversational AI risk & market regime advisor (English & Hinglish) |
-| `GET` | `/api/v1/backtest/results`| Historical equity curves, drawdown series, and trade logs |
+| `GET` | `/api/v1/regime/hmm` | Real-time Gaussian HMM 3-state regime posterior probabilities & volatility gate |
+| `GET` | `/api/v1/options/chain` | Black-Scholes Greeks (Delta/Gamma/Vega/Theta), IV surface, PCR & Net GEX |
+| `GET` | `/api/v1/fundamentals` | Piotroski 9-point score, valuation multiples, and FII/DII shareholding drift |
+| `POST`| `/api/v1/tca/report` | Implementation Shortfall (Perold 1988) execution quality & regime drift |
+| `POST`| `/api/v1/attribution/report` | Multi-component PnL attribution (TA, Carhart factors, HMM timing, GEX flow) |
+| `GET` | `/api/v1/monitoring/health` | Population Stability Index (PSI) feature drift & rolling IC decay alerts |
+| `POST`| `/api/v1/data-quality` | Stale-tick reconciliation, split jump audits, and bar continuity |
+| `GET` | `/api/v1/sentiment` | Multi-source sentiment tone scoring and unusual option block flow |
+| `GET` | `/api/v1/backtest/results`| Historical equity curves, drawdown series, DSR, PBO, and trade logs |
 | `WS`  | `/ws/market/stream` | Real-time tick and order-fill event streaming |
 
 ---
@@ -167,15 +175,21 @@ In the spirit of institutional rigor, the current version operates under specifi
 Track ongoing engineering and contribute via the [GitHub Issues Backlog](https://github.com/ayush0001-git/apex-quant/issues):
 
 * **[Issue #1](https://github.com/ayush0001-git/apex-quant/issues/1)**: `[Roadmap] Live Broker Integration: Zerodha Kite Connect SDK adapter (BrokerPort)` [Step 8 Deferred]
-* **[Issue #2](https://github.com/ayush0001-git/apex-quant/issues/2)**: ✅ `[RESOLVED] Options-Chain Analytics: Black-Scholes Greeks, Implied Volatility Surface, PCR & Max Pain` (Implemented in `src/apex/core/options.py`)
-* **[Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)**: ✅ `[RESOLVED] Level-2 Order Book Depth Ingestion, L2 OFI, Queue Imbalance & Dynamic Slippage` (Implemented in `src/apex/adapters/data/orderbook_adapter.py`, `src/apex/core/slippage.py`, `src/apex/core/microstructure.py`)
-* **[Issue #4](https://github.com/ayush0001-git/apex-quant/issues/4)**: ✅ `[RESOLVED] Portfolio Multi-Asset VaR, Expected Shortfall (CVaR) & Monte Carlo Stress Testing` (Implemented in `src/apex/core/portfolio_risk.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Point-in-Time Data Integrity & Corporate Action Sanity Checks` (Implemented in `src/apex/core/data_integrity.py` with fetch metadata JSONL logging)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Expanded NIFTY 100/200 TCA Calibration Script` (Implemented in `scripts/run_tca.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Perold Implementation Shortfall TCA Engine` (Implemented in `src/apex/core/tca.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Multi-Component PnL Attribution & Walk-Forward Optimizer` (Implemented in `src/apex/core/attribution.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Population Stability Index (PSI) & IC Decay Monitoring` (Implemented in `src/apex/core/monitoring.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Queue-Delay Slippage & Fill Realism (Touch != Fill)` (Implemented in `src/apex/core/slippage.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Options-Chain Analytics: Black-Scholes Greeks, Implied Volatility Surface, PCR & Max Pain` (Implemented in `src/apex/core/options.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Level-2 Order Book Depth Ingestion, L2 OFI, Queue Imbalance & Dynamic Slippage` (Implemented in `src/apex/adapters/data/orderbook_adapter.py`, `src/apex/core/slippage.py`, `src/apex/core/microstructure.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Portfolio Multi-Asset VaR, Expected Shortfall (CVaR) & Monte Carlo Stress Testing` (Implemented in `src/apex/core/portfolio_risk.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Gaussian HMM 3-State Regime Classifier & Volatility-Conditioned Gating` (Implemented in `src/apex/core/regime.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Fundamental/Quality Factors (Piotroski Score, EV/EBITDA, Shareholding Drift)` (Implemented in `src/apex/adapters/data/fundamental_adapter.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Multi-Strategy Allocator with Risk Parity & Collinearity Penalty` (Implemented in `src/apex/core/allocator.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Quantified Bounded LLM Defensive Throttle (0.5x - 1.0x)` (Implemented in `src/apex/core/risk.py`)
-* **[Institutional Upgrade]**: ✅ `[RESOLVED] Cross-Sectional Factor Engine & Carhart 4-Factor Alpha` (Implemented in `src/apex/core/factors.py`)
-* **[Institutional Upgrade]**: ✅ `[RESOLVED] Survivorship-Bias-Free Historical Bhavcopy Ingestion & Universe Expansion (NIFTY 50/100)` (Implemented in `src/apex/adapters/data/bhavcopy_adapter.py` & `src/apex/core/scanner.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Cross-Sectional Factor Engine, Winsorization & Sector Neutralization` (Implemented in `src/apex/core/factors.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Survivorship-Bias-Free Historical Bhavcopy Ingestion & Universe Expansion (NIFTY 100/200)` (Implemented in `src/apex/adapters/data/bhavcopy_adapter.py` & `src/apex/core/scanner.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Combinatorial Purged Cross-Validation (CPCV), PBO & Deflated Sharpe Ratio (DSR)` (Implemented in `src/apex/core/validation.py`)
 
 ---
