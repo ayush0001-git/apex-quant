@@ -1,0 +1,44 @@
+﻿# apex-quant/src/apex/domain/enums.py
+"""Pure domain enumerations for Apex Quant Terminal."""
+from enum import Enum, unique
+
+
+@unique
+class Timeframe(str, Enum):
+    M1 = "1m"
+    M5 = "5m"
+    M15 = "15m"
+    H1 = "1h"
+    D1 = "1d"
+
+
+@unique
+class Direction(str, Enum):
+    LONG = "LONG"
+    SHORT = "SHORT"
+    HOLD = "HOLD"
+
+
+@unique
+class GateStatus(str, Enum):
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+@unique
+class KillReason(str, Enum):
+    NONE = "NONE"
+    MAX_DAILY_DRAWDOWN = "MAX_DAILY_DRAWDOWN_2PCT"
+    CONSECUTIVE_LOSSES = "CONSECUTIVE_LOSS_THROTTLE"
+    FEED_STALE = "FEED_STALE_OVER_2500MS"
+    ORDER_REJECTION_LIMIT = "ORDER_REJECTIONS_EXCEEDED"
+    SPREAD_DISLOCATION = "SPREAD_DISLOCATION_OVER_0.4PCT"
+    NEGATIVE_NET_RR = "NEGATIVE_NET_EXPECTANCY_AFTER_FRICTION"
+
+
+@unique
+class MarketRegime(str, Enum):
+    BULL_EXPANSION = "BULL_EXPANSION"
+    BEAR_EXPANSION = "BEAR_EXPANSION"
+    RANGE_COMPRESSION = "RANGE_COMPRESSION"
+    VOLATILE_UNCONFIRMED = "VOLATILE_UNCONFIRMED"

@@ -1,0 +1,35 @@
+﻿# apex-quant/config/settings.yaml
+# Production Configuration for Apex Quant-Terminal (NSE/BSE)
+
+timeframes:
+  regime: "1d"
+  structure: "1h"
+  trigger: "15m"
+
+risk:
+  max_position_pct: 0.01
+  max_daily_drawdown_pct: 0.02
+  consecutive_loss_throttle: 3
+  min_friction_multiplier: 3.5
+
+friction:
+  brokerage_per_order: 20.0
+  stt_intraday_pct: 0.0002
+  gst_pct: 0.18
+  exchange_turnover_pct: 0.0000325
+  sebi_turnover_pct: 0.000001
+  stamp_duty_pct: 0.00003
+  default_slippage_pct: 0.0005
+
+llm:
+  scan_model: "free_pool"
+  synth_model: "paid_gate"
+  synth_timeout_s: 30
+
+data:
+  primary: "yfinance"
+  fallback: "mock"
+
+execution:
+  mode: "paper"
+  algo_id: "APEX_PAPER_ADVISORY_V1"
