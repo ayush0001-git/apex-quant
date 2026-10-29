@@ -117,3 +117,4 @@ class DataQualityReconciler:
             data_fetch_timestamp=datetime.now().isoformat(),
             validation_notes=tuple(notes),
         )
+

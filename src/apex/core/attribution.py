@@ -167,3 +167,4 @@ class PnLAttributionEngine:
             window_idx += 1
 
         return windows
+

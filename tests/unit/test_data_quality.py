@@ -66,3 +66,4 @@ def test_data_quality_detects_stock_split():
     report = DataQualityReconciler.validate_series(bars)
     assert report.corporate_action_suspected is True
     assert report.suspected_split_ratio == "2:1 Stock Split / Bonus"
+

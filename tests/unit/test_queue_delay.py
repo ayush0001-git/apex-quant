@@ -94,3 +94,4 @@ def test_market_order_latency_penalty():
     # Market order should pay latency penalty
     assert quote_market.latency_penalty_bps > 0.0
     assert quote_market.slippage_bps > quote_limit.slippage_bps
+

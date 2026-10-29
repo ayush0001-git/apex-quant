@@ -112,3 +112,4 @@ class SentimentAdapter:
             alternative_alpha_bias=alt_bias,
             top_headline=str(data["headline"]),
         )
+
