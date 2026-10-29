@@ -1,0 +1,11 @@
+services:
+  apex-terminal:
+    build: .
+    container_name: apex-quant-terminal
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

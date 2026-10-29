@@ -4,6 +4,7 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-005571.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Architecture](https://img.shields.io/badge/Architecture-Hexagonal%20(Ports%20%26%20Adapters)-orange.svg)](docs/ARCHITECTURE.md)
+[![ADRs](https://img.shields.io/badge/Architecture%20Decisions-5%20Accepted%20ADRs-blueviolet.svg)](docs/adr/)
 [![Market](https://img.shields.io/badge/Market-NSE%20%2F%20BSE%20Equities-red.svg)](https://www.nseindia.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -11,6 +12,8 @@
 
 ### 💡 Why I Built This
 > Most retail algorithmic systems fail in production for two avoidable reasons: **unconscious lookahead bias** (indicators repainting on unclosed bars) and **unmodeled transaction friction** (statutory STT, GST, and slippage eating away nominal profits). I built **Apex Quant-Terminal** to solve both through uncompromising engineering discipline: a strict **Hexagonal Architecture**, a byte-level **non-repainting causality gate**, and an **unforgiving mathematical RiskGate** where AI reasoning is strictly barred from altering risk limits or position sizing.
+>
+> 📖 *Read the full engineering retrospective:* **[How I Built an Institutional Quant Terminal for Indian Equities](docs/ARTICLE_WRITEUP.md)**
 
 ---
 
@@ -108,7 +111,7 @@ flowchart TD
     CLI --> Core
 ```
 
-*For complete architectural specifications and diagrams, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).*
+*For complete architectural specifications, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the formal [Decision Log (ADRs)](docs/adr/).*
 
 ---
 
@@ -116,7 +119,7 @@ flowchart TD
 
 ### 🏦 For Quantitative Developers & Trading Desks
 * **Zero-Repainting Invariant**: Ingestion rejects any bar where `is_closed == False`. Verified in [`tests/causality/test_lookahead_bias.py`](tests/causality/test_lookahead_bias.py): incremental bar-by-bar calculation produces bitwise identical results to batch calculation.
-* **Deterministic Risk Protection**: Prompt engineering and LLMs are banned from [`src/apex/core/risk.py`](src/apex/core/risk.py). Stop-loss thresholds, position sizing, and drawdown breakers are purely mathematical.
+* **Deterministic Risk Protection**: Prompt engineering and LLMs are strictly banned from [`src/apex/core/risk.py`](src/apex/core/risk.py). Stop-loss thresholds, position sizing, and drawdown breakers are purely mathematical.
 * **Microsecond Decoupling**: Storage, logging, and external web APIs are strictly decoupled from core pricing loops.
 
 ### 🔄 For Data Engineers & Data Management
@@ -131,81 +134,69 @@ flowchart TD
 
 ---
 
-## ⚡ Core Pipeline Highlights
+## 🔌 Self-Documenting REST API Surface
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Market as NSE / BSE Feed
-    participant Ingest as IngestionService
-    participant Feat as FeatureService (TA-Lib)
-    participant Kronos as ForecastService
-    participant LLM as Multi-Agent Debate
-    participant Risk as RiskGate (Pure Math)
-    participant Exec as ExecutionService
-    actor Terminal as TradingView Dashboard
+Apex Quant exposes a clean, read-only REST and WebSocket surface via FastAPI for frontends and dashboard clients:
 
-    Market->>Ingest: Ingest Closed Daily Bar
-    Note over Ingest: Causality Gate (is_closed == True)
-    Ingest->>Feat: Stream Normalized Bar
-    Feat->>Kronos: Compute 61 Patterns + 20/50 MAs
-    Kronos-->>Feat: Forward Probability Distribution (12-bar)
-    Feat->>LLM: Pass Confluence & Regime Snapshot
-    LLM-->>Risk: Synthesized Qualitative Intent
-    Note over Risk: Verify 1% Risk Cap & 3.5x Friction Hurdle
-    Risk->>Exec: RiskDecision (APPROVED)
-    Exec->>Terminal: Stream Bracket Order Overlay (Target, Entry, SL)
-```
+![FastAPI Swagger Documentation](assets/swagger_docs.png)
 
-1. **61 Non-Repainting Candlestick Recognizers**: Instant mathematical detection of Bullish Engulfing, Hammer, Morning Star, and Doji reversals via TA-Lib.
-2. **Autoregressive Neural Forecast (Kronos)**: Projects future High/Low probabilistic prediction bands over 12 forward bars.
-3. **Split-Brain LLM Topology**: Rapid batch screening via free pool + deep multi-agent debate desk with a **hard 30-second timeout** that defaults safely to `HOLD` on failure.
-4. **Friction-Aware Expectancy**: Trades are approved only when:
-   $$\text{Expected Net Profit} > 3.5 \times \text{Total Statutory Charges (STT + GST + Stamp Duty + Slippage)}$$
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/market/bars` | Normalized OHLCV candlestick feed with causality verification |
+| `GET` | `/api/v1/signals/active` | Current approved swing setups with bracket order parameters |
+| `POST`| `/api/v1/advisor/chat` | Conversational AI risk & market regime advisor (English & Hinglish) |
+| `GET` | `/api/v1/backtest/results`| Historical equity curves, drawdown series, and trade logs |
+| `WS`  | `/ws/market/stream` | Real-time tick and order-fill event streaming |
 
 ---
 
-## 📂 Repository Directory Tree
+## ⚠️ Known Limitations (Honest Evaluation)
 
-```
-apex-quant/
-├── .github/workflows/
-│   └── tests.yml                   # Live CI test runner on push & PR
-├── assets/
-│   ├── terminal_demo.gif           # Live terminal animated workflow
-│   ├── terminal_preview.png        # High-res terminal UI snapshot
-│   ├── equity_curve.png            # 24-month backtest & drawdown chart
-│   └── social_preview.png          # OpenGraph card for GitHub/LinkedIn
-├── config/
-│   ├── settings.yaml               # Pinned Risk, Friction & Timeframe settings
-│   └── .env.example                # Secret placeholders (API keys, DB URLs)
-├── docs/
-│   ├── ARCHITECTURE.md             # Hexagonal architecture & sequence diagrams
-│   ├── DECISION_LOG.md             # Architectural Decision Records (ADR 001-005)
-│   └── DATA_PIPELINE.md            # Data integrity, validation & audit lineage
-├── indicators/
-│   └── Apex_Institutional_Suite.pine # Pine Script v6 companion suite
-├── src/apex/
-│   ├── domain/                     # Pure domain models (enums, Bar, FeatureSnapshot)
-│   ├── ports/                      # Abstract contracts (MarketData, Broker, LLM, Storage)
-│   ├── core/                       # Ingestion, Features, Forecast, Decision, RiskGate, Execution
-│   ├── adapters/                   # YFinance, Mock, PaperBroker, LLM pools, SQLite Audit
-│   ├── interface/                  # FastAPI REST endpoints & TradingView static web terminal
-│   └── wiring/                     # Dependency injection container
-├── tests/                          # 43/43 Passing Pytest Suite
-│   ├── causality/                  # Strict non-repainting & lookahead bias tests
-│   ├── contract/                   # Interface compliance tests
-│   └── unit/                       # Component mathematical tests
-├── pyproject.toml                  # Standard Python package manifest
-├── pytest.ini                      # Test configuration
-└── requirements.txt                # Pinned production dependencies
-```
+In the spirit of institutional rigor, the current version operates under specific engineering and market assumptions:
+
+1. **Backtest Fills vs. Live Market Impact**: Simulated fills assume limit orders execute at the close or next open if the price is touched. In high-volatility events, real execution queues may suffer queue-delay slippage.
+2. **Fixed Slippage Model (5 bps)**: Slippage is currently modeled as a fixed 5 basis points ($0.05\%$). In reality, market impact varies with Level-2 order book depth (see [Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)).
+3. **Paper Execution Scope**: Live broker order placement is deferred to Step 8 behind `BrokerPort`. Currently, `PaperBroker` simulates order fills without touching real capital.
+4. **Cash Market Shorting Restrictions**: Short setups are restricted to intraday MIS in Indian cash equities; multi-day swing positions are long-only by regulatory design.
+5. **Universe Survivorship**: The 23 liquid universe reflects current market leaders; historical backtests over longer horizons should incorporate delisted or relegated instruments.
+
+---
+
+## 🗺️ Project Roadmap & Active Backlog
+
+Track ongoing engineering and contribute via the [GitHub Issues Backlog](https://github.com/ayush0001-git/apex-quant/issues):
+
+* **[Issue #1](https://github.com/ayush0001-git/apex-quant/issues/1)**: `[Roadmap] Live Broker Integration: Zerodha Kite Connect SDK adapter (BrokerPort)`
+* **[Issue #2](https://github.com/ayush0001-git/apex-quant/issues/2)**: `[Feature] Options-Chain Analytics: Black-Scholes Greeks & Implied Volatility (IV) Surface`
+* **[Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)**: `[Data Engineering] Level-2 Order Book Ingestion & Dynamic Slippage Estimator`
+* **[Issue #4](https://github.com/ayush0001-git/apex-quant/issues/4)**: `[Risk Engine] Portfolio Multi-Asset VaR (Value-at-Risk) & Monte Carlo Stress Testing`
+
+---
+
+## 📋 Architectural Decision Records (ADRs)
+
+All core architectural decisions are documented as standalone ADRs:
+
+* **[ADR-001: Hexagonal Architecture over Monoliths](docs/adr/ADR-001-hexagonal-architecture.md)** — Decoupling broker SDKs and external APIs from core mathematical pipelines.
+* **[ADR-002: Deterministic Pure-Math RiskGate](docs/adr/ADR-002-deterministic-math-riskgate.md)** — Why LLMs and prompt engineering are barred from capital risk allocation.
+* **[ADR-003: Split-Brain LLM Topology](docs/adr/ADR-003-split-brain-llm-topology.md)** — Free batch screening vs. paid multi-agent debate desk, reducing API cost by 94%.
+* **[ADR-004: Strict Non-Repainting Causality Gate](docs/adr/ADR-004-non-repainting-causality-gate.md)** — Enforcing byte-level `is_closed == True` bar filtering.
+* **[ADR-005: Explicit SEBI Statutory Friction Hurdle](docs/adr/ADR-005-sebi-statutory-friction-hurdle.md)** — Mathematical veto for setups with nominal gains under $3.5\times$ statutory taxes.
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### 1. Installation
+### 1. Run with Docker (Fastest, No Setup)
+
+```bash
+git clone https://github.com/ayush0001-git/apex-quant.git
+cd apex-quant
+docker compose up --build
+```
+Open your browser at 👉 **`http://localhost:8000`**
+
+### 2. Local Python Setup
 
 ```bash
 # Clone the repository
@@ -221,36 +212,13 @@ source venv/bin/activate
 
 # Install package and dependencies
 pip install -e .
-```
 
-### 2. Verify Causality & Test Suite
-
-Run the full automated test suite:
-
-```bash
+# Run test suite
 pytest
-```
-*Expected: `43 passed, 1 warning in ~4.8s`.*
 
-### 3. Launch the Terminal
-
-```bash
+# Start the terminal server
 python -m uvicorn src.apex.interface.api:app --host 127.0.0.1 --port 8000 --reload
 ```
-
-Open your browser at:
-👉 **`http://127.0.0.1:8000`**
-
----
-
-## 📋 Architectural Decision Records (ADRs)
-
-Key engineering choices are documented in [docs/DECISION_LOG.md](docs/DECISION_LOG.md):
-* **[ADR-001](docs/DECISION_LOG.md#adr-001-hexagonal-architecture-ports--adapters-over-framework-monoliths)**: Hexagonal Architecture over framework monoliths.
-* **[ADR-002](docs/DECISION_LOG.md#adr-002-deterministic-pure-math-riskgate-with-zero-llm-authority)**: Pure-math RiskGate barring AI hallucinations from risk sizing.
-* **[ADR-003](docs/DECISION_LOG.md#adr-003-split-brain-llm-topology-free-pool-screening-vs-paid-deep-debate)**: Split-brain LLM topology cutting API operational costs by 94%.
-* **[ADR-004](docs/DECISION_LOG.md#adr-004-strict-non-repainting-ingestion-causality-gate-is_closed--true)**: Anti-lookahead byte filter (`is_closed == True`).
-* **[ADR-005](docs/DECISION_LOG.md#adr-005-explicit-sebi-statutory-friction-hurdle--35x-sttgst)**: Explicit statutory friction gate preventing phantom profits.
 
 ---
 
