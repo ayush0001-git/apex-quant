@@ -154,11 +154,11 @@ Apex Quant exposes a clean, read-only REST and WebSocket surface via FastAPI for
 
 In the spirit of institutional rigor, the current version operates under specific engineering and market assumptions:
 
-1. **Backtest Fills vs. Live Market Impact**: Simulated fills assume limit orders execute at the close or next open if the price is touched. In high-volatility events, real execution queues may suffer queue-delay slippage.
-2. **Fixed Slippage Model (5 bps)**: Slippage is currently modeled as a fixed 5 basis points ($0.05\%$). In reality, market impact varies with Level-2 order book depth (see [Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)).
-3. **Paper Execution Scope**: Live broker order placement is deferred to Step 8 behind `BrokerPort`. Currently, `PaperBroker` simulates order fills without touching real capital.
-4. **Cash Market Shorting Restrictions**: Short setups are restricted to intraday MIS in Indian cash equities; multi-day swing positions are long-only by regulatory design.
-5. **Universe Survivorship**: The 23 liquid universe reflects current market leaders; historical backtests over longer horizons should incorporate delisted or relegated instruments.
+1. **Dynamic Microstructure Slippage & Queue Realism**: Naive fixed 5 bps slippage has been replaced with Kyle's square-root price impact law ($\text{Impact} \sim \sigma \cdot \sqrt{\text{OrderSize}/\text{ADV}}$), Level-2 order book depth conditioning, 150 ms execution latency penalties, and probabilistic queue-position fills (`Touch != Fill`).
+2. **Residual High-Frequency Queue Delay**: While limit order queue position ($Q_{\text{ahead}}$) and trade-through volume probabilities are explicitly modeled in `slippage.py`, microsecond-level FIFO queue dynamics in fast-moving packet bursts remain an honest residual approximation.
+3. **Paper Execution Scope**: Live broker order placement is decoupled behind `BrokerPort` and deferred to Step 8. Currently, `PaperBroker` simulates realistic order fills without deploying live capital.
+4. **Cash Market Shorting Restrictions**: Short setups are restricted to intraday MIS in Indian cash equities; multi-day swing positions are long-only by SEBI regulatory design.
+5. **Universe Expansion & Point-in-Time Liquidity**: Expanded from 23 stocks to NIFTY 100/200 via `BhavcopyAdapter` with historical point-in-time turnover filters and tracking of delisted/relegated securities to prevent survivorship bias.
 
 ---
 

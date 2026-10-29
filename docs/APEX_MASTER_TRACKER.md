@@ -302,3 +302,47 @@ apex-quant/
   - Documented all 8 institutional quantitative pillars and multi-source data ingestion pipelines.
 - [x] **11.6 Full Test Suite Verified**: **83 passed, 0 failed in 11.76s**.
 
+
+
+---
+
+### 🟩 Step 12: [COMPLETED] Institutional Microstructure Realism, TCA, Attribution, Factor Neutralization & Monitoring
+- [x] **12.1 Queue-Delay Slippage & Fill Realism (`core/slippage.py`)**:
+  - Replaced naive fill assumptions with discrete queue-delay modeling (`QueueFillReport`, `FillStatus`).
+  - Trade-through penetration rule: orders fully filled only when price trades strictly beyond the limit price.
+  - "Touch-only" execution probability penalty ($\le 0.35$ based on queue ahead from Level-2 depth).
+  - 150ms market-order latency penalty simulating exchange matching engine order transit.
+- [x] **12.2 Universe Expansion & Survivorship-Bias Free Screening (`adapters/data/bhavcopy_adapter.py`)**:
+  - Point-in-time constituent filtering across NIFTY 100/200 symbols (`get_point_in_time_constituents`).
+  - Inactive, suspended, and relegated stock tracker (`get_delisted_or_relegated_symbols`) guaranteeing zero survivorship bias in multi-year backtests.
+- [x] **12.3 Documentation Integrity Sync (`README.md`)**:
+  - Honest disclosure: updated "Known Limitations" removing obsolete "fixed 5 bps" text; explicitly documented dynamic Kyle impact, trade-through queue position, and residual sub-millisecond execution gaps.
+- [x] **12.4 Transaction Cost Analysis (TCA) Engine (`core/tca.py`)**:
+  - Perold (1988) Implementation Shortfall breakdown into four distinct friction buckets: Spread Cost, Market Impact, Delay Cost, and Statutory Charges (STT/Stamp/GST/SEBI).
+  - Pre-trade slippage estimate vs. post-trade realized slippage drift analysis.
+  - Breakdown of execution quality across market regimes (Trend vs. Turbulence).
+- [x] **12.5 Multi-Component PnL Attribution & Walk-Forward Optimization (`core/attribution.py`)**:
+  - Multi-component return decomposition separating PnL into TA signals, Carhart factor exposures, regime timing, options GEX flow, and risk throttle savings.
+  - Rolling out-of-sample walk-forward window validator (`WalkForwardWindow`, `simulate_walk_forward`).
+- [x] **12.6 Factor Neutralization, Winsorization & Crowding Diagnostics (`core/factors.py`)**:
+  - Cross-sectional 1st/99th percentile winsorization and $[-3.0, +3.0]$ Z-score clamping.
+  - Sector neutralization against NSE sector benchmarks (`SECTOR_MAP`), preventing unintended macro bets.
+  - Factor crowding indicator alerting on extreme correlation spikes and momentum saturation.
+- [x] **12.7 Robust 4-Feature Gaussian HMM & BIC Parsimony (`core/regime.py`)**:
+  - 4-dimensional normalized feature matrix: log returns, realized volatility, volume ratio, and normalized high-low range.
+  - Bayesian Information Criterion (BIC) state selection preventing state over-fitting.
+  - Diagonal transition persistence diagnostic ($p_{ii} \ge 0.70$) ensuring regimes do not chatter.
+- [x] **12.8 Data Quality Reconciler (`adapters/data/data_quality.py`)**:
+  - Stale tick / zero-volume bar detection and forward-filling.
+  - Automated corporate action split detection (price jumps $> 40\%$ with counter-volume expansion).
+  - Strict NSE market hours continuity and timestamp sanity checking.
+- [x] **12.9 Real-Time Monitoring & Alpha Drift Engine (`core/monitoring.py`)**:
+  - Population Stability Index (PSI) tracking feature distribution drift ($PSI \ge 0.25$ significant drift).
+  - Rolling Information Coefficient (IC) decay alert via Spearman rank correlation ($IC < 0$).
+  - System health status and automated alert dispatch.
+- [x] **12.10 Alternative Data & Unusual Options Order Flow (`adapters/data/sentiment_adapter.py`)**:
+  - Multi-source sentiment tone scoring $[-1.0, 1.0]$.
+  - Unusual Option Flow (UOF) detection for institutional block transactions (premium $> ₹50$L, volume/OI ratio $> 2.0$).
+- [x] **12.11 REST API Surface Expansion (`interface/api.py` & `wiring/container.py`)**:
+  - Added endpoints: `POST /api/v1/tca/report`, `POST /api/v1/attribution/report`, `GET /api/v1/monitoring/health`, `GET /api/v1/sentiment`, `POST /api/v1/data-quality`.
+- [x] **12.12 Full QA Suite Verification**: **104 passed, 0 failed in 13.29s across all causality, contract, unit, and API tests**.

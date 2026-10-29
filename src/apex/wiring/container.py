@@ -28,12 +28,17 @@ from ..core.portfolio_risk import PortfolioRiskEngine
 from ..core.validation import InstitutionalValidator
 from ..core.options import OptionsAnalyticsEngine
 from ..core.allocator import MultiStrategyAllocator
+from ..core.tca import TCAEngine
+from ..core.attribution import PnLAttributionEngine
+from ..core.monitoring import MonitoringEngine
 
 from ..adapters.data.mock_adapter import MockAdapter
 from ..adapters.data.yfinance_feed import YFinanceFeed
 from ..adapters.data.bhavcopy_adapter import BhavcopyAdapter
 from ..adapters.data.orderbook_adapter import OrderBookAdapter
 from ..adapters.data.fundamental_adapter import FundamentalAdapter
+from ..adapters.data.sentiment_adapter import SentimentAdapter
+from ..adapters.data.data_quality import DataQualityReconciler
 from ..adapters.broker.paper_broker import PaperBroker
 from ..adapters.broker.null_broker import NullBroker
 from ..adapters.llm.free_pool import FreePoolAdapter
@@ -53,6 +58,8 @@ class Container:
         self.bhavcopy = BhavcopyAdapter()
         self.orderbook = OrderBookAdapter()
         self.fundamentals = FundamentalAdapter()
+        self.sentiment = SentimentAdapter()
+        self.data_quality = DataQualityReconciler()
 
         # 2. Wire Broker Port (Default: PaperBroker)
         if settings.execution.mode == "paper":
@@ -81,7 +88,7 @@ class Container:
         self.scanner = ScannerService(data_port=self.data_port)
         self.advisor = AdvisorEngine()
 
-        # 6. Institutional Quant & Frontier Engines
+        # 6. Institutional Quant, Execution & Frontier Engines
         self.factors = FactorService()
         self.regime_classifier = RegimeClassifier()
         self.hmm_regime = GaussianHMMRegimeDetector()
@@ -91,6 +98,9 @@ class Container:
         self.validator = InstitutionalValidator()
         self.options = OptionsAnalyticsEngine()
         self.allocator = MultiStrategyAllocator()
+        self.tca = TCAEngine()
+        self.attribution = PnLAttributionEngine()
+        self.monitoring = MonitoringEngine()
 
     async def run_pipeline(
         self,

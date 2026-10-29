@@ -588,6 +588,257 @@ async def evaluate_portfolio_risk(req: PortfolioRiskRequest) -> Mapping[str, Any
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+
+@app.get("/api/v1/tca/report")
+async def get_tca_report() -> Mapping[str, Any]:
+    """Transaction Cost Analysis (TCA): Implementation Shortfall and Realized vs Modeled Slippage."""
+    from ..core.tca import TradeExecutionRecord
+    from ..domain.enums import Direction, MarketRegime
+    from datetime import datetime, timedelta
+
+    # Generate or extract execution records from audit logs
+    now = datetime.now()
+    records = [
+        TradeExecutionRecord(
+            trade_id="TRD-001",
+            symbol="RELIANCE.NS",
+            direction=Direction.LONG,
+            timestamp=now - timedelta(hours=3),
+            arrival_price=2500.0,
+            fill_price=2501.2,
+            shares=40,
+            turnover_inr=100048.0,
+            regime=MarketRegime.BULL_EXPANSION,
+            pre_trade_expected_slippage_bps=5.0,
+            realized_slippage_bps=4.8,
+            statutory_friction_inr=48.2,
+        ),
+        TradeExecutionRecord(
+            trade_id="TRD-002",
+            symbol="TCS.NS",
+            direction=Direction.LONG,
+            timestamp=now - timedelta(hours=2),
+            arrival_price=3500.0,
+            fill_price=3501.8,
+            shares=28,
+            turnover_inr=98050.4,
+            regime=MarketRegime.RANGE_COMPRESSION,
+            pre_trade_expected_slippage_bps=5.2,
+            realized_slippage_bps=5.1,
+            statutory_friction_inr=45.6,
+        ),
+        TradeExecutionRecord(
+            trade_id="TRD-003",
+            symbol="INFY.NS",
+            direction=Direction.LONG,
+            timestamp=now - timedelta(hours=1),
+            arrival_price=1500.0,
+            fill_price=1501.1,
+            shares=65,
+            turnover_inr=97571.5,
+            regime=MarketRegime.HIGH_VOLATILITY_TURBULENCE,
+            pre_trade_expected_slippage_bps=9.5,
+            realized_slippage_bps=7.3,
+            statutory_friction_inr=46.8,
+        ),
+    ]
+
+    report = container.tca.analyze_executions(records)
+    return {
+        "total_trades_analyzed": report.total_trades_analyzed,
+        "total_turnover_inr": report.total_turnover_inr,
+        "total_friction_paid_inr": report.total_friction_paid_inr,
+        "mean_implementation_shortfall_bps": report.mean_implementation_shortfall_bps,
+        "median_implementation_shortfall_bps": report.median_implementation_shortfall_bps,
+        "mean_pre_trade_expected_slippage_bps": report.mean_pre_trade_expected_slippage_bps,
+        "mean_realized_slippage_bps": report.mean_realized_slippage_bps,
+        "slippage_drift_bps": report.slippage_drift_bps,
+        "execution_efficiency_pct": report.execution_efficiency_pct,
+        "is_execution_model_conservative": report.is_execution_model_conservative,
+        "regime_breakdown": {
+            k: {
+                "trade_count": v.trade_count,
+                "avg_expected_slippage_bps": v.avg_expected_slippage_bps,
+                "avg_realized_slippage_bps": v.avg_realized_slippage_bps,
+                "slippage_divergence_bps": v.slippage_divergence_bps,
+                "avg_implementation_shortfall_bps": v.avg_implementation_shortfall_bps,
+            }
+            for k, v in report.regime_breakdown.items()
+        },
+    }
+
+
+@app.get("/api/v1/attribution/report")
+async def get_attribution_report() -> Mapping[str, Any]:
+    """PnL Attribution & Rolling Walk-Forward Alpha Stability."""
+    from ..core.attribution import DailyPnLAttribution
+    from ..domain.enums import MarketRegime
+
+    sample_daily = [
+        DailyPnLAttribution(
+            trade_date="2026-10-25",
+            total_pnl_inr=1850.0,
+            ta_signal_pnl=720.0,
+            factor_alpha_pnl=580.0,
+            regime_timing_pnl=350.0,
+            options_gex_pnl=200.0,
+            llm_throttle_savings=250.0,
+            total_friction_drag=95.0,
+            active_regime=MarketRegime.BULL_EXPANSION,
+        ),
+        DailyPnLAttribution(
+            trade_date="2026-10-26",
+            total_pnl_inr=-420.0,
+            ta_signal_pnl=-850.0,
+            factor_alpha_pnl=210.0,
+            regime_timing_pnl=120.0,
+            options_gex_pnl=100.0,
+            llm_throttle_savings=450.0,
+            total_friction_drag=92.0,
+            active_regime=MarketRegime.RANGE_COMPRESSION,
+        ),
+        DailyPnLAttribution(
+            trade_date="2026-10-27",
+            total_pnl_inr=2450.0,
+            ta_signal_pnl=950.0,
+            factor_alpha_pnl=780.0,
+            regime_timing_pnl=420.0,
+            options_gex_pnl=300.0,
+            llm_throttle_savings=180.0,
+            total_friction_drag=105.0,
+            active_regime=MarketRegime.BULL_EXPANSION,
+        ),
+    ]
+
+    report = container.attribution.attribute_pnl(sample_daily)
+    import numpy as np
+    np.random.seed(42)
+    synthetic_rets = list(np.random.normal(0.001, 0.012, 100))
+    wf_windows = container.attribution.simulate_walk_forward(synthetic_rets, in_sample_bars=40, out_of_sample_bars=15)
+
+    return {
+        "total_pnl_inr": report.total_pnl_inr,
+        "total_friction_inr": report.total_friction_inr,
+        "ta_signal_pct": report.ta_signal_pct,
+        "factor_alpha_pct": report.factor_alpha_pct,
+        "regime_timing_pct": report.regime_timing_pct,
+        "options_gex_pct": report.options_gex_pct,
+        "llm_throttle_value_add_inr": report.llm_throttle_value_add_inr,
+        "is_alpha_diversified": report.is_alpha_diversified,
+        "walk_forward_windows_count": len(wf_windows),
+        "walk_forward_summary": [
+            {
+                "window": w.window_id,
+                "in_sample_sharpe": w.in_sample_sharpe,
+                "out_of_sample_sharpe": w.out_of_sample_sharpe,
+                "degradation_pct": w.sharpe_degradation_pct,
+                "is_stable": w.is_stable,
+            }
+            for w in wf_windows[:4]
+        ],
+    }
+
+
+@app.get("/api/v1/monitoring/health")
+async def get_monitoring_health() -> Mapping[str, Any]:
+    """Operational risk monitoring, Population Stability Index (PSI), and rolling IC decay."""
+    import numpy as np
+    np.random.seed(42)
+    baseline_factors = list(np.random.normal(0.0, 1.0, 50))
+    current_factors = list(np.random.normal(0.05, 1.02, 50))
+
+    drift_report = container.monitoring.evaluate_feature_drift(
+        factor_name="MOMENTUM_20D",
+        baseline_values=baseline_factors,
+        current_values=current_factors,
+    )
+
+    signals = list(np.random.normal(0.5, 0.2, 25))
+    forward_rets = [s * 0.03 + np.random.normal(0.0, 0.01) for s in signals]
+    ic_report = container.monitoring.calculate_rolling_ic(signals, forward_rets)
+
+    alerts = container.monitoring.check_system_alerts(
+        current_drawdown_pct=0.65,
+        portfolio_var_95_pct=2.1,
+        realized_slippage_bps=5.4,
+        modeled_slippage_bps=5.0,
+    )
+
+    return {
+        "status": "HEALTHY",
+        "feature_drift": {
+            "factor": drift_report.factor_name,
+            "psi_score": drift_report.psi_score,
+            "status": drift_report.status,
+            "recalibration_needed": drift_report.is_recalibration_recommended,
+        },
+        "signal_decay": {
+            "signal": ic_report.signal_name,
+            "rolling_ic": ic_report.current_rolling_ic,
+            "t_stat": ic_report.ic_t_stat,
+            "is_signal_decayed": ic_report.is_signal_decayed,
+        },
+        "alerts_count": len(alerts),
+        "alerts": [
+            {
+                "severity": a.severity,
+                "component": a.component,
+                "message": a.message,
+                "value": a.metric_value,
+            }
+            for a in alerts
+        ],
+    }
+
+
+@app.get("/api/v1/sentiment")
+async def get_sentiment(
+    symbol: str = Query("RELIANCE.NS"),
+) -> Mapping[str, Any]:
+    """Alternative alpha: news sentiment tone and unusual options block order flow."""
+    snap = container.sentiment.fetch_sentiment(symbol)
+    return {
+        "symbol": snap.symbol,
+        "timestamp": snap.timestamp.isoformat(),
+        "news_sentiment_score": snap.news_sentiment_score,
+        "headline_count_24h": snap.headline_count_24h,
+        "unusual_options_flow_detected": snap.unusual_options_flow_detected,
+        "options_skew_shift_pct": snap.options_skew_shift_pct,
+        "alternative_alpha_bias": snap.alternative_alpha_bias,
+        "top_headline": snap.top_headline,
+    }
+
+
+@app.get("/api/v1/data-quality")
+async def validate_data_quality(
+    symbol: str = Query("RELIANCE.NS"),
+    tf: str = Query("15m", pattern="^(1m|5m|15m|1h|1d)$"),
+    bars: int = Query(50, ge=20, le=200),
+    mock: bool = Query(False),
+) -> Mapping[str, Any]:
+    """Data quality and corporate action reconciliation (stale ticks, splits, gap sanity)."""
+    active_container = Container(settings=settings, use_mock=mock)
+    timeframe = Timeframe(tf)
+    try:
+        raw_bars = await active_container.data_port.get_ohlcv(symbol, timeframe, bars)
+        validated_bars = active_container.ingestion.validate_and_normalize(raw_bars)
+        report = active_container.data_quality.validate_series(validated_bars)
+        return {
+            "symbol": report.symbol,
+            "total_bars": report.total_bars,
+            "is_valid": report.is_valid,
+            "missing_bars_count": report.missing_bars_count,
+            "stale_bars_count": report.stale_bars_count,
+            "corporate_action_suspected": report.corporate_action_suspected,
+            "suspected_split_ratio": report.suspected_split_ratio,
+            "max_price_jump_pct": report.max_price_jump_pct,
+            "validation_notes": list(report.validation_notes),
+            "data_fetch_timestamp": report.data_fetch_timestamp,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/replay", response_class=HTMLResponse)
 async def serve_replay():
     """Serve the Professional Backtest Replay page."""

@@ -197,3 +197,50 @@ def test_api_portfolio_risk():
     assert data["portfolio_var_95_1d_pct"] > 0.0
     assert data["portfolio_cvar_95_pct"] > 0.0
     assert len(data["stress_tests"]) >= 4
+
+
+def test_api_tca_report():
+    res = client.get("/api/v1/tca/report")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_trades_analyzed"] >= 3
+    assert "mean_implementation_shortfall_bps" in data
+    assert "regime_breakdown" in data
+
+
+def test_api_attribution_report():
+    res = client.get("/api/v1/attribution/report")
+    assert res.status_code == 200
+    data = res.json()
+    assert "ta_signal_pct" in data
+    assert "factor_alpha_pct" in data
+    assert "walk_forward_summary" in data
+
+
+def test_api_monitoring_health():
+    res = client.get("/api/v1/monitoring/health")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "HEALTHY"
+    assert "feature_drift" in data
+    assert "signal_decay" in data
+    assert "alerts" in data
+
+
+def test_api_sentiment():
+    res = client.get("/api/v1/sentiment?symbol=RELIANCE.NS")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["symbol"] == "RELIANCE.NS"
+    assert "news_sentiment_score" in data
+    assert "unusual_options_flow_detected" in data
+    assert "top_headline" in data
+
+
+def test_api_data_quality():
+    res = client.get("/api/v1/data-quality?symbol=RELIANCE.NS&tf=15m&bars=50&mock=true")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["symbol"] == "RELIANCE.NS"
+    assert "is_valid" in data
+    assert "corporate_action_suspected" in data

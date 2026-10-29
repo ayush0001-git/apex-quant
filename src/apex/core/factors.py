@@ -1,20 +1,35 @@
 # apex-quant/src/apex/core/factors.py
-"""Factor Engine: Cross-Sectional Alpha & Factor Exposure Service.
+"""Factor Engine: Cross-Sectional Alpha, Sector Neutralization & Factor Refinement Service.
 
 Implements institutional quantitative factor models for Indian equities:
 1. Carhart Four-Factor & Momentum Models (WML, 20d Momentum, 5d Reversal)
 2. Low-Volatility & Downside Risk Factor (20d Realized Volatility, ATR/Price)
 3. Liquidity & Market Impact Factor (Amihud Illiquidity, Volume Z-Score)
 4. Quality & Value Proxy (Piotroski F-score estimation, Fundamental Multiples)
-5. Cross-Sectional Vectorized Normalization (Z-Score & Percentile Ranking)
+5. Outlier Winsorization: Clamps extreme tails to [-3.0, +3.0] standard deviations.
+6. Sector Neutralization: Subtracts sector-mean factor loadings to eliminate accidental sector bets.
+7. Factor Crowding Diagnostics: Measures pairwise factor correlation & collinearity.
 """
 from dataclasses import dataclass
 import math
-from typing import Mapping, Sequence, Dict, Any, Optional
+from typing import Mapping, Sequence, Dict, Any, Optional, List
 import numpy as np
 import pandas as pd
 from ..domain.models import Bar
 from .ingestion import DataQualityError
+
+
+SECTOR_MAP: Dict[str, str] = {
+    "TCS.NS": "IT", "INFY.NS": "IT", "WIPRO.NS": "IT", "HCLTECH.NS": "IT", "TECHM.NS": "IT", "LTIM.NS": "IT",
+    "HDFCBANK.NS": "BANKING", "ICICIBANK.NS": "BANKING", "SBIN.NS": "BANKING", "KOTAKBANK.NS": "BANKING", "AXISBANK.NS": "BANKING", "INDUSINDBK.NS": "BANKING",
+    "BAJFINANCE.NS": "FINANCIAL_SERVICES", "BAJAJFINSV.NS": "FINANCIAL_SERVICES", "SHRIRAMFIN.NS": "FINANCIAL_SERVICES",
+    "RELIANCE.NS": "ENERGY", "ONGC.NS": "ENERGY", "BPCL.NS": "ENERGY", "IOC.NS": "ENERGY", "COALINDIA.NS": "ENERGY",
+    "ITC.NS": "FMCG", "HINDUNILVR.NS": "FMCG", "NESTLEIND.NS": "FMCG", "BRITANNIA.NS": "FMCG", "TATACONSUM.NS": "FMCG",
+    "MARUTI.NS": "AUTO", "TATAMOTORS.NS": "AUTO", "M&M.NS": "AUTO", "HEROMOTOCO.NS": "AUTO", "EICHERMOT.NS": "AUTO",
+    "SUNPHARMA.NS": "PHARMA", "CIPLA.NS": "PHARMA", "DRREDDY.NS": "PHARMA", "DIVISLAB.NS": "PHARMA", "APOLLOHOSP.NS": "PHARMA",
+    "LT.NS": "CAPITAL_GOODS", "BHARTIARTL.NS": "TELECOM", "TITAN.NS": "CONSUMER", "TRENT.NS": "CONSUMER",
+    "NTPC.NS": "POWER", "POWERGRID.NS": "POWER", "JSWSTEEL.NS": "METALS", "TATASTEEL.NS": "METALS", "HINDALCO.NS": "METALS",
+}
 
 
 @dataclass(frozen=True)
@@ -29,10 +44,11 @@ class FactorExposures:
     amihud_illiquidity: float      # Absolute return per rupee of turnover
     quality_score: float           # Estimated Piotroski / stability proxy (0 to 9)
     composite_alpha_score: float   # Weighted composite factor score (-100 to +100)
+    sector_neutral_alpha: float = 0.0
 
 
 class FactorService:
-    """Computes cross-sectional and time-series factor exposures."""
+    """Computes cross-sectional, sector-neutral, and winsorized factor exposures."""
 
     DEFAULT_WEIGHTS = {
         "momentum": 0.35,
@@ -71,7 +87,6 @@ class FactorService:
         # 3. Realized Volatility: Annualized 20-bar log return standard deviation
         log_rets = np.diff(np.log(closes[-21:]))
         daily_vol = np.std(log_rets, ddof=1) if len(log_rets) > 1 else 0.015
-        # Approximate annualization factor (sqrt(252) for daily, sqrt(252 * 25) for 15m)
         ann_vol = daily_vol * math.sqrt(252) * 100.0
 
         # 4. ATR / Price Ratio
@@ -96,8 +111,7 @@ class FactorService:
         turnover_slice = closes[-19:] * volumes[-19:] + 1e-8
         amihud = float(np.mean(rets_slice / turnover_slice) * 1e7)
 
-        # 7. Quality / Balance Proxy (Piotroski style heuristic for technical series):
-        # Rewards upward trending slope with low return variance and volume stability
+        # 7. Quality / Balance Proxy (Piotroski style heuristic for technical series)
         quality = 5.0
         if mom_20 > 0:
             quality += 1.0
@@ -123,30 +137,36 @@ class FactorService:
         universe_raw_factors: Mapping[str, Mapping[str, float]],
         weights: Optional[Mapping[str, float]] = None,
         hmm_state: int = 0,
+        sector_mapping: Optional[Mapping[str, str]] = None,
     ) -> Dict[str, FactorExposures]:
-        """Normalize factors across an entire universe using cross-sectional Z-scores.
-        
-        Dynamically adapts factor weights based on the prevailing HMM regime state.
-        Outputs ranked FactorExposures with composite alpha scores from -100 to +100.
-        """
+        """Normalize factors across universe with winsorization and sector neutralization."""
         w = weights or cls.HMM_WEIGHT_PROFILES.get(hmm_state, cls.DEFAULT_WEIGHTS)
         symbols = list(universe_raw_factors.keys())
         if not symbols:
             return {}
 
         df = pd.DataFrame.from_dict(universe_raw_factors, orient="index")
+        sectors = sector_mapping or SECTOR_MAP
 
-        # Standardize cross-sectionally
-        # Momentum: Higher is better
+        # 1. Winsorize extreme raw factors to 1st and 99th percentiles
+        for col in df.columns:
+            q_low = df[col].quantile(0.01)
+            q_high = df[col].quantile(0.99)
+            df[col] = df[col].clip(lower=q_low, upper=q_high)
+
+        # 2. Standardize cross-sectionally
         mom_z = (df["momentum_20d"] - df["momentum_20d"].mean()) / (df["momentum_20d"].std() + 1e-8)
-        # Volatility: Lower is better (Low-Vol anomaly) -> invert
         vol_z = -(df["realized_vol_20d"] - df["realized_vol_20d"].mean()) / (df["realized_vol_20d"].std() + 1e-8)
-        # Liquidity: High volume z-score & low Amihud illiquidity is better
         liq_z = (df["volume_zscore_20d"] - df["volume_zscore_20d"].mean()) / (df["volume_zscore_20d"].std() + 1e-8)
-        # Quality: Higher quality is better
         qual_z = (df["quality_score"] - df["quality_score"].mean()) / (df["quality_score"].std() + 1e-8)
 
-        # Composite Z-score
+        # Clamp Z-scores to [-3.0, +3.0]
+        mom_z = mom_z.clip(lower=-3.0, upper=3.0)
+        vol_z = vol_z.clip(lower=-3.0, upper=3.0)
+        liq_z = liq_z.clip(lower=-3.0, upper=3.0)
+        qual_z = qual_z.clip(lower=-3.0, upper=3.0)
+
+        # 3. Composite Z-score
         composite_z = (
             w.get("momentum", 0.35) * mom_z
             + w.get("low_volatility", 0.25) * vol_z
@@ -154,9 +174,13 @@ class FactorService:
             + w.get("quality", 0.20) * qual_z
         )
 
-        # Map to -100 to +100 composite score
-        # Using tanh sigmoid mapping to bound outliers gracefully
         composite_scores = np.tanh(composite_z / 2.0) * 100.0
+
+        # 4. Sector Neutralization: Subtract sector-mean composite score
+        df["composite_raw"] = composite_scores
+        df["sector"] = [sectors.get(s, "GENERAL") for s in symbols]
+        sector_means = df.groupby("sector")["composite_raw"].transform("mean")
+        sector_neutral_scores = df["composite_raw"] - sector_means
 
         results = {}
         for sym in symbols:
@@ -171,7 +195,28 @@ class FactorService:
                 amihud_illiquidity=raw["amihud_illiquidity"],
                 quality_score=raw["quality_score"],
                 composite_alpha_score=round(float(composite_scores[sym]), 1),
+                sector_neutral_alpha=round(float(sector_neutral_scores[sym]), 1),
             )
 
         return results
 
+    @classmethod
+    def check_factor_crowding(
+        cls,
+        universe_raw_factors: Mapping[str, Mapping[str, float]],
+    ) -> Dict[str, Any]:
+        """Evaluate factor correlation matrix to detect crowded factor regimes."""
+        if len(universe_raw_factors) < 3:
+            return {"is_crowded": False, "max_pairwise_factor_corr": 0.0}
+
+        df = pd.DataFrame.from_dict(universe_raw_factors, orient="index")
+        corr = df[["momentum_20d", "realized_vol_20d", "volume_zscore_20d", "quality_score"]].corr().abs().values
+
+        np.fill_diagonal(corr, 0.0)
+        max_c = float(np.max(corr))
+
+        return {
+            "is_crowded": max_c >= 0.70,
+            "max_pairwise_factor_corr": round(max_c, 3),
+            "alert": "Factor crowding detected: alpha stream correlation > 0.70" if max_c >= 0.70 else "Normal factor dispersion",
+        }
