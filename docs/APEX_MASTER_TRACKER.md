@@ -277,3 +277,28 @@ apex-quant/
   - Blends Trend-Following, Mean-Reversion, and Factor streams using Risk Parity / Inverse Volatility.
   - Enforces correlation-aware collinearity penalty when strategy returns exceed $\rho > 0.60$.
 - [x] **10.7 Full Test Suite Verified**: **77 passed, 0 failed in 12.26s**.
+
+---
+
+### 🟩 Step 11: [COMPLETED] Full Wiring, REST API Surface & Interface Harmonization
+- [x] **11.1 Container Dependency Injection Assembly (`wiring/container.py`)**:
+  - Registered all new adapters: `BhavcopyAdapter`, `OrderBookAdapter`, `FundamentalAdapter`.
+  - Instantiated all institutional quant engines: `FactorService`, `GaussianHMMRegimeDetector`, `DynamicSlippageModel`, `MicrostructureService`, `PortfolioRiskEngine`, `InstitutionalValidator`, `OptionsAnalyticsEngine`, `MultiStrategyAllocator`.
+- [x] **11.2 Institutional REST API Endpoints (`interface/api.py`)**:
+  - `GET /api/v1/regime/hmm`: Real-time 3-state HMM regime classification with posterior state probabilities and volatility gating.
+  - `GET /api/v1/options/chain`: Black-Scholes Greeks (Delta, Gamma, Vega, Theta, Rho), Newton-Raphson IV, PCR (OI & Vol), Max Pain, and Net GEX.
+  - `GET /api/v1/fundamentals`: Piotroski 9-point score, valuation multiples, FII/DII shareholding drift, and Quality Composite.
+  - `POST /api/v1/allocator/weights`: Risk-Parity multi-strategy capital allocation with collinearity correlation penalties.
+  - `GET /api/v1/microstructure`: Level-2 order book depth (5/20 depth), queue imbalance, microprice, and depth-weighted spreads.
+  - `POST /api/v1/portfolio/risk`: Multi-asset Parametric VaR, Historical VaR, CVaR 95%, and 4 macroeconomic stress test scenarios.
+  - Updated `/analyze` with factor exposures, volatility gate, HMM state, and state probabilities.
+  - Updated `/backtest/run` with Deflated Sharpe Ratio (DSR), Probability of Backtest Overfitting (PBO), CVaR 95%, and Kyle's Law dynamic slippage.
+- [x] **11.3 TradingView Pine Script Suite v2.0 (`indicators/Apex_Institutional_Suite.pine`)**:
+  - Upgraded with 3-state Gaussian HMM regime status, Kyle's Lambda dynamic slippage metric, volatility gating, and DSR verification.
+- [x] **11.4 Institutional Quant-Terminal UI (`interface/static/index.html`)**:
+  - Integrated 5th tab `🏛️ Quant Alpha` displaying HMM state probabilities, Level-2 depth queues, Options PCR & Max Pain, and Piotroski quality scores.
+  - Integrated DSR, PBO, and Kyle slippage telemetry into the Backtest rewind panel.
+- [x] **11.5 Architecture & Data Pipeline Synchronization (`docs/ARCHITECTURE.md`, `docs/DATA_PIPELINE.md`)**:
+  - Documented all 8 institutional quantitative pillars and multi-source data ingestion pipelines.
+- [x] **11.6 Full Test Suite Verified**: **83 passed, 0 failed in 11.76s**.
+

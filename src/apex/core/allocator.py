@@ -152,3 +152,4 @@ class MultiStrategyAllocator:
             portfolio_expected_sharpe=port_sharpe,
             rebalancing_needed=enc >= 1.5,
         )
+

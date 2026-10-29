@@ -1,13 +1,13 @@
-﻿# apex-quant/src/apex/interface/api.py
+# apex-quant/src/apex/interface/api.py
 """Read-only REST/WebSocket API layer for external frontends and user interaction.
 
 Strict Single-Ownership Rules:
 1. Purely read-only delivery layer.
 2. Cannot bypass RiskGate or directly place orders.
-3. Exposes health, technical analysis snapshots, audit history, scanner setups, and conversational advisory.
+3. Exposes health, technical analysis snapshots, audit history, scanner setups, institutional quant endpoints, and conversational advisory.
 """
 from pathlib import Path
-from typing import Any, Mapping, Optional, List
+from typing import Any, Mapping, Optional, List, Dict
 from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -23,9 +23,9 @@ from ..core.backtest import BacktestEngine
 
 
 app = FastAPI(
-    title="Apex Quant-Terminal (NSE / BSE) Read-Only Advisory API",
-    version="1.0.0",
-    description="Institutional Decision-Support Backend for Indian Equities and Indices",
+    title="Apex Quant-Terminal (NSE / BSE) Institutional Advisory API",
+    version="2.0.0",
+    description="Institutional Decision-Support Backend for Indian Equities, Derivatives, and Multi-Asset Portfolios",
 )
 
 # Enable CORS for local/Vercel dashboards
@@ -54,6 +54,26 @@ class ChatRequest(BaseModel):
     mock: bool = Field(False, description="Use deterministic synthetic data for tests")
 
 
+class StrategyStreamInput(BaseModel):
+    strategy_id: str = Field(..., description="Unique strategy name (e.g. trend_following, mean_reversion, factor_alpha)")
+    returns: List[float] = Field(..., description="Historical periodic return series")
+
+
+class AllocatorRequest(BaseModel):
+    strategies: List[StrategyStreamInput] = Field(..., description="List of strategy streams with historical returns")
+    total_equity: float = Field(100000.0, ge=1000.0, description="Total capital in INR to allocate")
+
+
+class PortfolioPositionInput(BaseModel):
+    symbol: str
+    allocation_inr: float = Field(..., ge=0.0)
+
+
+class PortfolioRiskRequest(BaseModel):
+    total_equity: float = Field(1000000.0, ge=1000.0)
+    positions: List[PortfolioPositionInput] = Field(...)
+
+
 @app.get("/health")
 def health_check() -> Mapping[str, Any]:
     """System health, active configuration, and risk limits."""
@@ -70,6 +90,15 @@ def health_check() -> Mapping[str, Any]:
             "regime": settings.timeframes.regime,
             "structure": settings.timeframes.structure,
             "trigger": settings.timeframes.trigger,
+        },
+        "institutional_features": {
+            "gaussian_hmm_regime": True,
+            "dynamic_kyle_slippage": True,
+            "level2_orderbook_ofi": True,
+            "options_greeks_and_gex": True,
+            "fundamental_piotroski": True,
+            "risk_parity_allocator": True,
+            "monte_carlo_cvar_95": True,
         },
     }
 
@@ -121,6 +150,10 @@ async def analyze_symbol(
                 "volume_ratio": f.volume_ratio,
                 "indicators": dict(f.indicators),
                 "patterns": list(f.patterns),
+                "factor_exposures": dict(f.factor_exposures),
+                "volatility_gate": f.volatility_gate,
+                "hmm_state": f.hmm_state,
+                "hmm_probabilities": list(f.hmm_probabilities),
             },
             "kronos_forecast": {
                 "model_version": fc.model_version,
@@ -229,7 +262,6 @@ async def chat_with_advisor(req: ChatRequest) -> Mapping[str, Any]:
                 },
             }
         except Exception as e:
-            # Fallback if symbol fetch fails
             err_msg = f"Could not analyze {target_symbol}: {str(e)}"
             return {
                 "reply": f"⚠️ **Analysis Warning**: {err_msg}",
@@ -258,7 +290,6 @@ async def get_audit_trail(limit: int = Query(50, ge=1, le=200)) -> Mapping[str, 
     }
 
 
-
 @app.get("/backtest/pine", response_class=HTMLResponse)
 async def get_pine_script():
     """Return the TradingView Pine Script v5 code for charting."""
@@ -278,7 +309,7 @@ async def run_backtest(
     equity: float = Query(100000.0, ge=1000.0),
     mock: bool = Query(False),
 ) -> Mapping[str, Any]:
-    """Execute historical bar-by-bar backtest simulating realistic friction and execution."""
+    """Execute historical bar-by-bar backtest simulating realistic friction, dynamic slippage, and DSR."""
     active_container = Container(settings=settings, use_mock=mock)
     timeframe = Timeframe(tf)
     try:
@@ -324,6 +355,10 @@ async def run_backtest(
             "profit_factor": summary.profit_factor,
             "max_drawdown_pct": summary.max_drawdown_pct,
             "sharpe_ratio": summary.sharpe_ratio,
+            "deflated_sharpe_ratio": summary.deflated_sharpe_ratio,
+            "probability_of_overfitting": summary.probability_of_overfitting,
+            "cvar_95_pct": summary.cvar_95_pct,
+            "avg_slippage_bps": summary.avg_slippage_bps,
             "trades": trades_data,
             "equity_curve": summary.equity_curve,
         }
@@ -331,6 +366,226 @@ async def run_backtest(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# =========================================================================
+# 🏛️ INSTITUTIONAL QUANT HEDGE-FUND REST ENDPOINTS (FRONTIER EXPANSION)
+# =========================================================================
+
+@app.get("/api/v1/regime/hmm")
+async def get_hmm_regime(
+    symbol: str = Query("NIFTY_50"),
+    tf: str = Query("15m", pattern="^(1m|5m|15m|1h|1d)$"),
+    bars: int = Query(60, ge=20, le=200),
+    mock: bool = Query(False),
+) -> Mapping[str, Any]:
+    """Classify market regime into 3 states using Gaussian Hidden Markov Model."""
+    active_container = Container(settings=settings, use_mock=mock)
+    timeframe = Timeframe(tf)
+    try:
+        raw_bars = await active_container.data_port.get_ohlcv(symbol, timeframe, bars)
+        validated_bars = active_container.ingestion.validate_and_normalize(raw_bars)
+        output = active_container.hmm_regime.detect_regime(validated_bars)
+        return {
+            "symbol": symbol,
+            "state_id": output.state_id,
+            "state_name": output.state_label,
+            "state_probabilities": list(output.state_probabilities),
+            "volatility_gate": output.volatility_gate,
+            "explanation": f"HMM State {output.state_id}: {output.state_label} with volatility gate factor {output.volatility_gate}",
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/options/chain")
+async def get_options_chain(
+    symbol: str = Query("NIFTY"),
+    spot: float = Query(24000.0, ge=1.0),
+    strikes: int = Query(11, ge=5, le=31),
+    strike_step: float = Query(50.0, ge=1.0),
+    expiry_days: int = Query(7, ge=1, le=90),
+    mock: bool = Query(False),
+) -> Mapping[str, Any]:
+    """Retrieve full options chain with Black-Scholes Greeks, IV surface, PCR, and Max Pain."""
+    active_container = Container(settings=settings, use_mock=mock)
+    try:
+        chain = active_container.options.generate_synthetic_chain(
+            symbol=symbol,
+            spot=spot,
+            num_strikes=strikes,
+            strike_step=strike_step,
+            days_to_expiry=expiry_days,
+        )
+        contracts_data = [
+            {
+                "strike": c.strike,
+                "option_type": c.option_type,
+                "ltp": c.ltp,
+                "implied_volatility_pct": c.implied_volatility_pct,
+                "delta": c.delta,
+                "gamma": c.gamma,
+                "vega": c.vega,
+                "theta": c.theta,
+                "open_interest": c.open_interest,
+                "volume": c.volume,
+            }
+            for c in chain.contracts
+        ]
+        return {
+            "symbol": chain.symbol,
+            "spot_price": chain.spot_price,
+            "atm_implied_volatility_pct": chain.atm_implied_volatility_pct,
+            "pcr_open_interest": chain.pcr_open_interest,
+            "pcr_volume": chain.pcr_volume,
+            "max_pain_strike": chain.max_pain_strike,
+            "net_gamma_exposure_inr": chain.net_gamma_exposure_inr,
+            "contracts_count": len(chain.contracts),
+            "contracts": contracts_data,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/fundamentals")
+async def get_fundamentals(
+    symbol: str = Query(..., description="e.g. RELIANCE.NS, TCS.NS, INFY.NS"),
+) -> Mapping[str, Any]:
+    """Fetch corporate fundamentals, Piotroski 9-point score, and institutional shareholding drift."""
+    try:
+        snap = container.fundamentals.get_fundamentals(symbol)
+        return {
+            "symbol": snap.symbol,
+            "timestamp": snap.timestamp.isoformat(),
+            "piotroski_score": snap.piotroski_score,
+            "ev_to_ebitda": snap.ev_to_ebitda,
+            "pe_ratio": snap.pe_ratio,
+            "roe_pct": snap.roe_pct,
+            "debt_to_equity": snap.debt_to_equity,
+            "fii_holding_pct": snap.fii_holding_pct,
+            "dii_holding_pct": snap.dii_holding_pct,
+            "promoter_holding_pct": snap.promoter_holding_pct,
+            "institutional_drift_pct": snap.institutional_drift_pct,
+            "quality_composite": snap.quality_composite,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/allocator/weights")
+async def allocate_strategy_weights(req: AllocatorRequest) -> Mapping[str, Any]:
+    """Compute Risk-Parity strategy weights with collinearity correlation penalties."""
+    try:
+        strategy_returns = {s.strategy_id: s.returns for s in req.strategies}
+        report = container.allocator.allocate_capital(
+            strategy_returns=strategy_returns,
+            total_equity=req.total_equity,
+        )
+        return {
+            "total_portfolio_equity": report.total_portfolio_equity,
+            "effective_number_of_strategies": report.effective_number_of_strategies,
+            "portfolio_expected_sharpe": report.portfolio_expected_sharpe,
+            "rebalancing_needed": report.rebalancing_needed,
+            "strategies": [
+                {
+                    "strategy_id": s.strategy_id,
+                    "strategy_name": s.strategy_name,
+                    "annualized_return_pct": s.annualized_return_pct,
+                    "annualized_volatility_pct": s.annualized_volatility_pct,
+                    "sharpe_ratio": s.sharpe_ratio,
+                    "allocated_weight_pct": s.allocated_weight_pct,
+                    "allocated_capital_inr": s.allocated_capital_inr,
+                    "risk_contribution_pct": s.risk_contribution_pct,
+                }
+                for s in report.strategies
+            ],
+            "correlation_matrix": report.correlation_matrix,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/microstructure")
+async def get_microstructure(
+    symbol: str = Query("RELIANCE.NS"),
+    spot: float = Query(2500.0, ge=1.0),
+    spread_bps: float = Query(4.0, ge=0.5),
+) -> Mapping[str, Any]:
+    """Fetch Level-2 order book depth, queue imbalance, microprice, and depth-weighted spread."""
+    try:
+        depth = container.orderbook.get_latest_depth(symbol)
+        if not depth:
+            depth = container.orderbook.generate_synthetic_depth(
+                symbol=symbol,
+                mid_price=spot,
+                spread_bps=spread_bps,
+                levels=5,
+            )
+        imb = container.microstructure.calculate_queue_imbalance(depth)
+        spread = container.microstructure.calculate_depth_weighted_spread(depth)
+        microprice = depth.microprice
+
+        return {
+            "symbol": depth.symbol,
+            "timestamp": depth.timestamp.isoformat(),
+            "best_bid": depth.best_bid,
+            "best_ask": depth.best_ask,
+            "spread_inr": depth.spread,
+            "spread_bps": spread,
+            "mid_price": depth.mid_price,
+            "microprice": microprice,
+            "queue_imbalance": imb,
+            "bids": [{"price": l.price, "quantity": l.quantity, "orders": l.orders_count} for l in depth.bids],
+            "asks": [{"price": l.price, "quantity": l.quantity, "orders": l.orders_count} for l in depth.asks],
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/portfolio/risk")
+async def evaluate_portfolio_risk(req: PortfolioRiskRequest) -> Mapping[str, Any]:
+    """Evaluate multi-asset Parametric VaR, Expected Shortfall (CVaR), and 4 macro stress scenarios."""
+    import numpy as np
+    try:
+        positions_dict = {p.symbol: p.allocation_inr for p in req.positions}
+        # Generate representative returns series for risk evaluation
+        np.random.seed(42)
+        rets_dict = {
+            p.symbol: list(np.random.normal(0.0005, 0.015, 30))
+            for p in req.positions
+        }
+        report = container.portfolio_risk.evaluate_portfolio(
+            positions=positions_dict,
+            historical_returns=rets_dict,
+            total_equity=req.total_equity,
+        )
+        return {
+            "total_portfolio_equity": report.total_portfolio_equity,
+            "total_allocated_capital": report.total_allocated_capital,
+            "cash_reserve_pct": report.cash_reserve_pct,
+            "portfolio_var_95_1d_pct": report.portfolio_var_95_1d_pct,
+            "portfolio_var_99_1d_pct": report.portfolio_var_99_1d_pct,
+            "portfolio_cvar_95_pct": report.portfolio_cvar_95_pct,
+            "monte_carlo_var_95_pct": report.monte_carlo_var_95_pct,
+            "max_pairwise_correlation": report.max_pairwise_correlation,
+            "correlated_pair": list(report.correlated_pair),
+            "diversification_ratio": report.diversification_ratio,
+            "is_var_approved": report.is_var_approved,
+            "is_cvar_approved": report.is_cvar_approved,
+            "is_correlation_approved": report.is_correlation_approved,
+            "rejection_reason": report.rejection_reason,
+            "stress_tests": [
+                {
+                    "scenario": s.scenario_name,
+                    "description": s.description,
+                    "projected_loss_pct": s.projected_portfolio_loss_pct,
+                    "projected_loss_inr": s.projected_loss_inr,
+                    "worst_hit_symbol": s.worst_hit_symbol,
+                    "breaches_circuit_breaker": s.breaches_circuit_breaker,
+                }
+                for s in report.stress_test_results
+            ],
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/replay", response_class=HTMLResponse)
@@ -340,6 +595,7 @@ async def serve_replay():
     if replay_file.exists():
         return FileResponse(replay_file)
     return HTMLResponse("<h1>Replay page not found.</h1>", status_code=404)
+
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():

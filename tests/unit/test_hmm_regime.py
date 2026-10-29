@@ -48,3 +48,4 @@ def test_hmm_regime_detects_turbulent_state_on_extreme_volatility():
     # State 2 corresponds to high-volatility turbulence
     assert output.volatility_gate < 1.0
     assert output.state_id == 2 or output.state_probabilities[2] > 0.3
+

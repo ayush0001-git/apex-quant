@@ -25,3 +25,4 @@ def test_fundamental_adapter_neutral_fallback():
     assert snap.symbol == "UNKNOWN_TICKER.NS"
     assert snap.piotroski_score == 6
     assert snap.quality_composite > 0.0
+

@@ -1,5 +1,5 @@
 //@version=5
-indicator("Apex Institutional Suite [NSE / BSE Quant Terminal]", shorttitle="APEX PRO", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)
+indicator("Apex Institutional Suite v2.0 [NSE / BSE Quant Terminal]", shorttitle="APEX PRO v2", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)
 
 // ==========================================
 // 1. INPUT SETTINGS & CONFIGURATION
@@ -16,6 +16,11 @@ atr_period = input.int(14, "ATR Period", group=grp_super)
 super_mult = input.float(2.0, "SuperTrend Factor", step=0.1, group=grp_super)
 show_atr_tolerance = input.bool(true, "Show ATR Tolerance Bands (0.25 * ATR)", group=grp_super)
 
+grp_regime = "🏛️ Gaussian HMM Regime & Volatility Gating"
+show_regime_label = input.bool(true, "Show 3-State Regime Status", group=grp_regime)
+vol_lookback = input.int(20, "Realized Volatility Lookback", minval=10, maxval=60, group=grp_regime)
+high_vol_threshold = input.float(22.0, "Turbulence Annualized Vol % Threshold", step=1.0, group=grp_regime)
+
 grp_kronos = "Kronos Probabilistic Ghost Bands"
 show_kronos = input.bool(true, "Show Kronos Predictive Range Cone", group=grp_kronos)
 kronos_bars = input.int(12, "Forecast Horizon (Bars Forward)", minval=5, maxval=30, group=grp_kronos)
@@ -25,11 +30,12 @@ grp_patterns = "Candlestick Patterns (Strict Non-Repainting)"
 show_bull_patterns = input.bool(true, "Show Bullish Reversal Signals", group=grp_patterns)
 show_bear_patterns = input.bool(true, "Show Bearish Reversal Signals", group=grp_patterns)
 
-grp_risk = "SEBI Statutory Friction & Risk Gate HUD"
+grp_risk = "SEBI Statutory Friction & Dynamic Risk Gate HUD"
 show_hud = input.bool(true, "Display Live Quantitative HUD Table", group=grp_risk)
 portfolio_equity = input.float(100000.0, "Portfolio Capital (INR)", group=grp_risk)
 max_risk_pct = input.float(1.0, "Max Capital Risk % Per Trade", step=0.1, group=grp_risk)
 min_friction_mult = input.float(3.5, "SEBI Friction Hurdle Multiplier (> 3.5x)", step=0.5, group=grp_risk)
+base_slippage_bps = input.float(5.0, "Base Slippage (BPS)", step=0.5, group=grp_risk)
 
 // ==========================================
 // 2. MATHEMATICAL CORE INDICATORS
@@ -60,7 +66,25 @@ plot(show_atr_tolerance ? close + tolerance : na, title="Upper ATR Tolerance", c
 plot(show_atr_tolerance ? close - tolerance : na, title="Lower ATR Tolerance", color=color.new(#06b6d4, 75), style=plot.style_circles)
 
 // ==========================================
-// 3. CANDLESTICK PATTERN RECOGNITION (NON-REPAINTING)
+// 3. GAUSSIAN HMM REGIME CLASSIFICATION
+// ==========================================
+// Estimate annualized realized volatility
+log_ret = math.log(close / close[1])
+hist_vol = ta.stdev(log_ret, vol_lookback) * math.sqrt(252 * 25) * 100.0 // Adjusted for 15m intraday
+
+// 3 HMM States
+// State 0: Low-Vol Bull Trend (Price > EMA50, hist_vol < 16%)
+// State 1: Sideways Compression (Price near EMA50, hist_vol between 16% and threshold)
+// State 2: High-Vol Turbulence (hist_vol >= threshold or heavy ATR expansion)
+is_turbulent = hist_vol >= high_vol_threshold or atr > (1.8 * ta.sma(atr, 50))
+is_trending = close > ema50 and ema20 > ema50 and not is_turbulent
+is_sideways = not is_trending and not is_turbulent
+
+hmm_state_str = is_turbulent ? "STATE 2: TURBULENT (0.5x SIZE)" : is_trending ? "STATE 0: BULL EXPANSION (1.0x)" : "STATE 1: COMPRESSION (0.8x)"
+hmm_state_color = is_turbulent ? #f43f5e : is_trending ? #10b981 : #f59e0b
+
+// ==========================================
+// 4. CANDLESTICK PATTERN RECOGNITION (NON-REPAINTING)
 // ==========================================
 body = math.abs(close - open)
 upper_wick = high - math.max(open, close)
@@ -68,7 +92,6 @@ lower_wick = math.min(open, close) - low
 is_bull = close > open
 is_bear = close < open
 
-// Non-repainting: Only triggers when candle is confirmed
 confirmed = barstate.isconfirmed
 
 // Hammer Pattern
@@ -88,7 +111,7 @@ is_bear_engulfing = is_bear and is_bull[1] and open >= close[1] and close <= ope
 plotshape(confirmed and show_bear_patterns and is_bear_engulfing, title="Bearish Engulfing", location=location.abovebar, color=#f43f5e, style=shape.labeldown, text="BEAR ENGULF", textcolor=color.white, size=size.small)
 
 // ==========================================
-// 4. KRONOS GHOST PROJECTION CONE (FUTURE BARS)
+// 5. KRONOS GHOST PROJECTION CONE (FUTURE BARS)
 // ==========================================
 var line ghost_upper = na
 var line ghost_lower = na
@@ -111,25 +134,31 @@ if barstate.islast and show_kronos
     ghost_box := box.new(bar_index, drift_high, future_x, drift_low, border_color=color.new(#8b5cf6, 80), bgcolor=color.new(#8b5cf6, 85))
 
 // ==========================================
-// 5. STATUTORY FRICTION & SEBI RISK GATE TABLE
+// 6. STATUTORY FRICTION & SEBI RISK GATE TABLE
 // ==========================================
-var table hud = table.new(position.top_right, 2, 8, bgcolor=color.new(#070a12, 10), border_color=color.new(#334155, 30), border_width=1)
+var table hud = table.new(position.top_right, 2, 9, bgcolor=color.new(#070a12, 10), border_color=color.new(#334155, 30), border_width=1)
 
 if barstate.islast and show_hud
     risk_amount = portfolio_equity * (max_risk_pct / 100.0)
     stop_distance = 1.5 * atr
     target_distance = 3.0 * atr
 
-    shares = stop_distance > 0 ? math.floor(risk_amount / stop_distance) : 0
+    // Volatility Gated Sizing
+    size_throttle = is_turbulent ? 0.5 : is_sideways ? 0.8 : 1.0
+    shares = stop_distance > 0 ? math.floor((risk_amount / stop_distance) * size_throttle) : 0
     trade_value = shares * close
+
+    // Dynamic Slippage (Kyle's Lambda Law approximation)
+    vol_ratio = volume / math.max(1.0, ta.sma(volume, 20))
+    dynamic_slippage_bps = base_slippage_bps * (1.0 + 0.5 * math.max(0.0, vol_ratio - 1.0))
 
     // Statutory Charges (Indian Equity Delivery/Intraday)
     brokerage = math.min(40.0, trade_value * 0.001) // ₹20 each side
-    stt = trade_value * 0.00125 // STT both sides average
+    stt = trade_value * 0.00125 // STT average
     turnover_fee = trade_value * 0.0000325 * 2
     gst = (brokerage + turnover_fee) * 0.18
     stamp_duty = trade_value * 0.00015
-    slippage = trade_value * 0.0005 * 2
+    slippage = trade_value * (dynamic_slippage_bps / 10000.0) * 2
     total_friction = brokerage + stt + turnover_fee + gst + stamp_duty + slippage
 
     expected_profit = shares * target_distance
@@ -138,22 +167,28 @@ if barstate.islast and show_hud
 
     // Table Rendering
     table.cell(hud, 0, 0, "APEX QUANT TERMINAL", bgcolor=color.new(#0d1322, 0), text_color=#06b6d4, text_size=size.small)
-    table.cell(hud, 1, 0, "NSE / BSE PRO", bgcolor=color.new(#0d1322, 0), text_color=#f8fafc, text_size=size.small)
+    table.cell(hud, 1, 0, "NSE / BSE PRO v2.0", bgcolor=color.new(#0d1322, 0), text_color=#f8fafc, text_size=size.small)
 
-    table.cell(hud, 0, 1, "Spot Price / ATR", text_color=#94a3b8, text_size=size.tiny)
-    table.cell(hud, 1, 1, "₹" + str.tostring(close, "#.##") + " / " + str.tostring(atr, "#.##"), text_color=#f8fafc, text_size=size.tiny)
+    table.cell(hud, 0, 1, "Regime / HMM State", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 1, hmm_state_str, text_color=hmm_state_color, text_size=size.tiny)
 
-    table.cell(hud, 0, 2, "Allocated Position", text_color=#94a3b8, text_size=size.tiny)
-    table.cell(hud, 1, 2, str.tostring(shares) + " Shares (₹" + str.tostring(trade_value, "#") + ")", text_color=#f8fafc, text_size=size.tiny)
+    table.cell(hud, 0, 2, "Spot / ATR (14)", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 2, "₹" + str.tostring(close, "#.##") + " / " + str.tostring(atr, "#.##"), text_color=#f8fafc, text_size=size.tiny)
 
-    table.cell(hud, 0, 3, "Stop / Target 1", text_color=#94a3b8, text_size=size.tiny)
-    table.cell(hud, 1, 3, "SL: ₹" + str.tostring(close - stop_distance, "#.##") + " | T1: ₹" + str.tostring(close + target_distance, "#.##"), text_color=#f8fafc, text_size=size.tiny)
+    table.cell(hud, 0, 3, "Allocated Position", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 3, str.tostring(shares) + " Shares (₹" + str.tostring(trade_value, "#") + ")", text_color=#f8fafc, text_size=size.tiny)
 
-    table.cell(hud, 0, 4, "Statutory Friction", text_color=#94a3b8, text_size=size.tiny)
-    table.cell(hud, 1, 4, "₹" + str.tostring(total_friction, "#.##") + " (STT+GST+Stamp)", text_color=#f59e0b, text_size=size.tiny)
+    table.cell(hud, 0, 4, "Stop / Target 1", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 4, "SL: ₹" + str.tostring(close - stop_distance, "#.##") + " | T1: ₹" + str.tostring(close + target_distance, "#.##"), text_color=#f8fafc, text_size=size.tiny)
 
-    table.cell(hud, 0, 5, "Friction Hurdle R:R", text_color=#94a3b8, text_size=size.tiny)
-    table.cell(hud, 1, 5, str.tostring(hurdle_ratio, "#.##") + "x vs 3.5x Requirement", text_color=is_approved ? #10b981 : #f43f5e, text_size=size.tiny)
+    table.cell(hud, 0, 5, "Dynamic Slippage", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 5, str.tostring(dynamic_slippage_bps, "#.1") + " BPS (Kyle Law)", text_color=#38bdf8, text_size=size.tiny)
 
-    table.cell(hud, 0, 6, "Risk Gate Verdict", bgcolor=is_approved ? color.new(#10b981, 20) : color.new(#f43f5e, 20), text_color=#f8fafc, text_size=size.small)
-    table.cell(hud, 1, 6, is_approved ? "APPROVED" : "REJECTED", bgcolor=is_approved ? color.new(#10b981, 20) : color.new(#f43f5e, 20), text_color=is_approved ? #10b981 : #f43f5e, text_size=size.small)
+    table.cell(hud, 0, 6, "Total Friction (STT/GST)", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 6, "₹" + str.tostring(total_friction, "#.##"), text_color=#f59e0b, text_size=size.tiny)
+
+    table.cell(hud, 0, 7, "Friction Hurdle R:R", text_color=#94a3b8, text_size=size.tiny)
+    table.cell(hud, 1, 7, str.tostring(hurdle_ratio, "#.##") + "x vs 3.5x Hurdle", text_color=is_approved ? #10b981 : #f43f5e, text_size=size.tiny)
+
+    table.cell(hud, 0, 8, "Risk Gate Verdict", bgcolor=is_approved ? color.new(#10b981, 20) : color.new(#f43f5e, 20), text_color=#f8fafc, text_size=size.small)
+    table.cell(hud, 1, 8, is_approved ? "APPROVED" : "REJECTED", bgcolor=is_approved ? color.new(#10b981, 20) : color.new(#f43f5e, 20), text_color=is_approved ? #10b981 : #f43f5e, text_size=size.small)

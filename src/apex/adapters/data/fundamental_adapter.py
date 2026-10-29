@@ -148,3 +148,4 @@ class FundamentalAdapter:
             institutional_drift_pct=data["drift"],
             quality_composite=composite,
         )
+

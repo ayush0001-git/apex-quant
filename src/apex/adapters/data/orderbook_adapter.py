@@ -66,3 +66,4 @@ class OrderBookAdapter:
             bids=tuple(bids),
             asks=tuple(asks),
         )
+

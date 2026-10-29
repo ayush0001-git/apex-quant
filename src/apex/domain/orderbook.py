@@ -40,3 +40,17 @@ class OrderBookDepth:
         if self.best_ask > 0 and self.best_bid > 0:
             return round(self.best_ask - self.best_bid, 2)
         return 0.0
+
+    @property
+    def microprice(self) -> float:
+        """Volume-weighted mid price across Level-1 top-of-book quotes."""
+        if not self.bids or not self.asks:
+            return self.mid_price
+        bid_p = self.bids[0].price
+        bid_q = self.bids[0].quantity
+        ask_p = self.asks[0].price
+        ask_q = self.asks[0].quantity
+        tot = bid_q + ask_q
+        if tot <= 0:
+            return self.mid_price
+        return round((bid_p * ask_q + ask_p * bid_q) / tot, 2)

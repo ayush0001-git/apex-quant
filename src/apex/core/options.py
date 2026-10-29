@@ -279,3 +279,4 @@ class OptionsAnalyticsEngine:
             net_gamma_exposure_inr=round(net_gex, 2),
             contracts=tuple(contracts),
         )
+

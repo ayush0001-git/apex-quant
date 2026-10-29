@@ -731,9 +731,10 @@
     <!-- Right Section: Tabbed Console (Dossier, AI Advisor, Radar, Backtest) -->
     <div class="panel">
       <div class="tab-nav">
-        <button class="tab-btn active" onclick="switchTab('dossierTab', this)">📊 Dossier & Indicators</button>
+        <button class="tab-btn active" onclick="switchTab('dossierTab', this)">📊 Dossier</button>
         <button class="tab-btn" onclick="switchTab('chatTab', this)">🤖 AI Advisor</button>
         <button class="tab-btn" onclick="switchTab('scannerTab', this)">📡 Radar</button>
+        <button class="tab-btn" onclick="switchTab('institutionalTab', this)">🏛️ Quant Alpha</button>
         <button class="tab-btn" onclick="switchTab('backtestTab', this)">⚡ Backtest</button>
       </div>
 
@@ -933,7 +934,101 @@
         </div>
       </div>
 
-      <!-- Tab 4: Backtest Engine -->
+      <!-- Tab: Institutional Quant Alpha (Frontier) -->
+      <div class="tab-content" id="institutionalTab">
+        <div style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle);">
+          <span style="font-family: var(--font-display); font-size: 13px; font-weight: 700;">🏛️ Hedge Fund Alpha & Microstructure</span>
+          <button class="tool-btn" onclick="loadInstitutionalQuantData()" style="padding: 3px 8px; font-size: 11px; background:rgba(6,182,212,0.2); color:var(--cyan-accent);">🔄 Refresh</button>
+        </div>
+        <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+          
+          <!-- HMM Regime Card -->
+          <div class="profile-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--cyan-accent);">GAUSSIAN HMM REGIME CLASSIFIER</span>
+              <span id="iqHmmState" style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--bull-primary);">STATE 0: LOW-VOL TREND</span>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted); margin-bottom:8px;" id="iqHmmExplanation">
+              Posterior state probabilities indicate stable trend expansion. Volatility gate 1.0x.
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px;">
+              <div class="quant-item">
+                <div class="quant-label">P(Low-Vol Bull)</div>
+                <div class="quant-val" id="iqProb0" style="color:var(--bull-primary);">--%</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">P(Compression)</div>
+                <div class="quant-val" id="iqProb1" style="color:var(--amber-accent);">--%</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">P(Turbulence)</div>
+                <div class="quant-val" id="iqProb2" style="color:var(--bear-primary);">--%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Level-2 Order Book Depth & Microstructure -->
+          <div class="profile-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--blue-accent);">LEVEL-2 DEPTH & ORDER FLOW (OFI)</span>
+              <span id="iqQueueImb" style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--cyan-accent);">Imbalance: +0.00</span>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom:8px;">
+              <div class="quant-item">
+                <div class="quant-label">Spread (BPS)</div>
+                <div class="quant-val" id="iqSpreadBps">-- BPS</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">VWAP Microprice</div>
+                <div class="quant-val" id="iqMicroprice" style="color:var(--cyan-accent);">₹--.--</div>
+              </div>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); display:flex; justify-content:space-between;">
+              <span id="iqBestBid">Best Bid: ₹--</span>
+              <span id="iqBestAsk">Best Ask: ₹--</span>
+            </div>
+          </div>
+
+          <!-- Options Analytics Card -->
+          <div class="profile-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--violet-accent);">OPTIONS CHAIN & GAMMA EXPOSURE (GEX)</span>
+              <span id="iqPcr" style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--bull-primary);">PCR: 1.15</span>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+              <div class="quant-item">
+                <div class="quant-label">Max Pain Strike</div>
+                <div class="quant-val" id="iqMaxPain" style="color:var(--amber-accent);">₹24,000</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">Net Gamma (GEX)</div>
+                <div class="quant-val" id="iqGex" style="color:var(--text-main);">+₹-- Cr</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fundamental Quality & Piotroski -->
+          <div class="profile-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--amber-accent);">CORPORATE QUALITY & PIOTROSKI F-SCORE</span>
+              <span id="iqPiotroski" style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--bull-primary);">Score: 8 / 9</span>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+              <div class="quant-item">
+                <div class="quant-label">FII Holding Drift</div>
+                <div class="quant-val" id="iqFiiDrift" style="color:var(--bull-primary);">+0.65%</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">Quality Composite</div>
+                <div class="quant-val" id="iqQualityComposite" style="color:var(--cyan-accent);">85.0 / 100</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tab 5: Backtest Engine -->
       <div class="tab-content" id="backtestTab">
         <div style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle);">
           <span style="font-family: var(--font-display); font-size: 13px; font-weight: 700;">Historical Rewind Backtest</span>
@@ -959,9 +1054,10 @@
             </div>
           </div>
 
-          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); padding: 4px 6px;">
-            Total Statutory Friction Paid: <strong id="btFriction" style="color:var(--amber-accent);">INR --.--</strong><br>
-            Sharpe Ratio: <strong id="btSharpe" style="color:#fff;">--</strong>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); padding: 4px 6px; display: flex; flex-direction: column; gap: 3px;">
+            <div>Total Statutory Friction: <strong id="btFriction" style="color:var(--amber-accent);">INR --.--</strong></div>
+            <div>Sharpe: <strong id="btSharpe" style="color:#fff;">--</strong> | Deflated Sharpe (DSR): <strong id="btDSR" style="color:var(--cyan-accent);">--</strong></div>
+            <div>Overfitting Prob (PBO): <strong id="btPBO" style="color:var(--bull-primary);">--%</strong> | Kyle Slippage: <strong id="btSlippage" style="color:var(--blue-accent);">-- BPS</strong></div>
           </div>
 
           <div style="font-family: var(--font-display); font-size: 12px; font-weight: 700; margin-top: 6px;">Executed Trade Log:</div>
@@ -992,6 +1088,73 @@
   </div>
 
   <script>
+    // ─────────────────────────────────────────────────────────────
+    // Tab Navigation & Institutional Quant Loader
+    // ─────────────────────────────────────────────────────────────
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+      if (btn) btn.classList.add('active');
+      if (tabId === 'institutionalTab') {
+        loadInstitutionalQuantData();
+      }
+    }
+
+    async function loadInstitutionalQuantData() {
+      try {
+        // 1. Fetch HMM Regime
+        const hmmRes = await fetch(`/api/v1/regime/hmm?symbol=${encodeURIComponent(currentSymbol)}&mock=${isMock}`);
+        if (hmmRes.ok) {
+          const hmm = await hmmRes.json();
+          document.getElementById('iqHmmState').innerText = `STATE ${hmm.state_id}: ${hmm.state_name}`;
+          document.getElementById('iqHmmState').style.color = hmm.state_id === 2 ? 'var(--bear-primary)' : hmm.state_id === 1 ? 'var(--amber-accent)' : 'var(--bull-primary)';
+          document.getElementById('iqHmmExplanation').innerText = hmm.explanation;
+          if (hmm.state_probabilities && hmm.state_probabilities.length >= 3) {
+            document.getElementById('iqProb0').innerText = `${(hmm.state_probabilities[0] * 100).toFixed(1)}%`;
+            document.getElementById('iqProb1').innerText = `${(hmm.state_probabilities[1] * 100).toFixed(1)}%`;
+            document.getElementById('iqProb2').innerText = `${(hmm.state_probabilities[2] * 100).toFixed(1)}%`;
+          }
+        }
+
+        // 2. Fetch Microstructure & Depth
+        const microRes = await fetch(`/api/v1/microstructure?symbol=${encodeURIComponent(currentSymbol)}`);
+        if (microRes.ok) {
+          const micro = await microRes.json();
+          document.getElementById('iqSpreadBps').innerText = `${micro.spread_bps.toFixed(1)} BPS`;
+          document.getElementById('iqMicroprice').innerText = `₹${micro.microprice.toFixed(2)}`;
+          document.getElementById('iqQueueImb').innerText = `Imbalance: ${micro.queue_imbalance >= 0 ? '+' : ''}${micro.queue_imbalance.toFixed(2)}`;
+          document.getElementById('iqQueueImb').style.color = micro.queue_imbalance >= 0 ? 'var(--bull-primary)' : 'var(--bear-primary)';
+          document.getElementById('iqBestBid').innerText = `Best Bid: ₹${micro.best_bid.toFixed(2)}`;
+          document.getElementById('iqBestAsk').innerText = `Best Ask: ₹${micro.best_ask.toFixed(2)}`;
+        }
+
+        // 3. Fetch Options Chain Analytics
+        const optRes = await fetch(`/api/v1/options/chain?symbol=NIFTY&mock=${isMock}`);
+        if (optRes.ok) {
+          const opt = await optRes.json();
+          document.getElementById('iqPcr').innerText = `PCR (OI): ${opt.pcr_open_interest.toFixed(2)} | Vol: ${opt.pcr_volume.toFixed(2)}`;
+          document.getElementById('iqMaxPain').innerText = `₹${opt.max_pain_strike.toLocaleString()}`;
+          const gexCr = (opt.net_gamma_exposure_inr / 10000000.0).toFixed(2);
+          document.getElementById('iqGex').innerText = `${gexCr >= 0 ? '+' : ''}₹${gexCr} Cr`;
+          document.getElementById('iqGex').style.color = gexCr >= 0 ? 'var(--bull-primary)' : 'var(--bear-primary)';
+        }
+
+        // 4. Fetch Fundamentals
+        const fundRes = await fetch(`/api/v1/fundamentals?symbol=${encodeURIComponent(currentSymbol)}`);
+        if (fundRes.ok) {
+          const fund = await fundRes.json();
+          document.getElementById('iqPiotroski').innerText = `F-Score: ${fund.piotroski_score} / 9`;
+          document.getElementById('iqPiotroski').style.color = fund.piotroski_score >= 7 ? 'var(--bull-primary)' : 'var(--amber-accent)';
+          document.getElementById('iqFiiDrift').innerText = `${fund.institutional_drift_pct >= 0 ? '+' : ''}${fund.institutional_drift_pct.toFixed(2)}%`;
+          document.getElementById('iqQualityComposite').innerText = `${fund.quality_composite.toFixed(1)} / 100`;
+        }
+      } catch (err) {
+        console.error('Error loading institutional quant data:', err);
+      }
+    }
+
     // ─────────────────────────────────────────────────────────────
     // Global State & Setups
     // ─────────────────────────────────────────────────────────────
@@ -2402,6 +2565,9 @@
         document.getElementById('btMaxDD').innerText = `${bt.max_drawdown_pct.toFixed(2)}%`;
         document.getElementById('btFriction').innerText = `INR ${bt.total_friction.toFixed(2)}`;
         document.getElementById('btSharpe').innerText = bt.sharpe_ratio.toFixed(2);
+        document.getElementById('btDSR').innerText = bt.deflated_sharpe_ratio ? bt.deflated_sharpe_ratio.toFixed(2) : '--';
+        document.getElementById('btPBO').innerText = bt.probability_of_overfitting !== undefined ? `${(bt.probability_of_overfitting * 100).toFixed(1)}%` : '--%';
+        document.getElementById('btSlippage').innerText = bt.avg_slippage_bps ? `${bt.avg_slippage_bps.toFixed(1)} BPS` : '5.0 BPS';
 
         list.innerHTML = '';
         if (!bt.trades || bt.trades.length === 0) {

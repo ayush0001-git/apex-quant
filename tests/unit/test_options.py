@@ -47,3 +47,4 @@ def test_synthetic_options_chain_analysis():
     assert chain.pcr_volume > 0.0
     assert 23500.0 <= chain.max_pain_strike <= 24500.0
     assert len(chain.contracts) == 22  # 11 strikes * 2 (CE + PE)
+

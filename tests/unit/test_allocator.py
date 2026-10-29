@@ -50,3 +50,4 @@ def test_multi_strategy_allocator_penalizes_collinear_strategies():
     s3_profile = next(s for s in report.strategies if s.strategy_id == "s3")
     s1_profile = next(s for s in report.strategies if s.strategy_id == "s1")
     assert s3_profile.allocated_weight_pct > s1_profile.allocated_weight_pct
+

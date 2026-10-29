@@ -38,3 +38,4 @@ def test_microstructure_queue_imbalance_and_spread():
     
     assert -1.0 <= imb <= 1.0
     assert spread_bps > 0.0
+
