@@ -24,11 +24,11 @@ friction:
   exchange_turnover_pct: 0.0000325
   sebi_turnover_pct: 0.000001
   stamp_duty_pct: 0.00003
-  default_slippage_pct: 0.0005
+  default_slippage_pct: 0.0007
   min_slippage_pct: 0.0002
   max_slippage_pct: 0.0050
-  slippage_vol_factor: 0.5
-  slippage_impact_factor: 0.1
+  slippage_vol_factor: 0.6
+  slippage_impact_factor: 0.15
 
 llm:
   scan_model: "free_pool"

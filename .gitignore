@@ -49,6 +49,8 @@ htmlcov/
 scratch/
 tmp/
 *.log
+*.jsonl
+data/fetch_logs/
 
 # IDE files
 .idea/

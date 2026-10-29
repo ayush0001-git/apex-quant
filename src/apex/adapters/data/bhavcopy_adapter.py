@@ -122,7 +122,20 @@ class BhavcopyAdapter(MarketDataPort):
         series = self._bars_by_symbol.get(formatted_symbol, [])
         if not series:
             return ()
-        return series[-bars:]
+        result = series[-bars:]
+        try:
+            from ...core.data_integrity import compute_bars_checksum, log_fetch_metadata
+            checksum = compute_bars_checksum(result)
+            log_fetch_metadata(
+                source="bhavcopy",
+                symbol=formatted_symbol,
+                row_count=len(result),
+                checksum=checksum,
+                timeframe=timeframe.value if hasattr(timeframe, "value") else str(timeframe),
+            )
+        except Exception:
+            pass
+        return result
 
     def get_all_traded_symbols(self) -> List[str]:
         """Return list of all symbols present in the Bhavcopy archive (including delisted)."""

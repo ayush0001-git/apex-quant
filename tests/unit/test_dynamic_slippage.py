@@ -19,7 +19,7 @@ def test_dynamic_slippage_baseline():
     )
     
     assert quote.slippage_bps >= 4.5
-    assert quote.slippage_bps <= 6.0
+    assert quote.slippage_bps <= 10.0
     assert quote.slippage_inr > 0.0
 
 

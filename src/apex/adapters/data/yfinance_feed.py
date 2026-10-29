@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/adapters/data/yfinance_feed.py
+# apex-quant/src/apex/adapters/data/yfinance_feed.py
 """Zero-cost MarketDataPort adapter using yfinance for NSE (.NS) and BSE (.BO) symbols."""
 import asyncio
 import math
@@ -82,8 +82,24 @@ class YFinanceFeed(MarketDataPort):
                 )
             )
 
-        # Return strictly the requested lookback of closed candles
-        return tuple(bars[-lookback:])
+        result_bars = tuple(bars[-lookback:])
+
+        # Log fetch metadata for point-in-time reproducibility
+        if result_bars:
+            try:
+                from ...core.data_integrity import compute_bars_checksum, log_fetch_metadata
+                checksum = compute_bars_checksum(result_bars)
+                log_fetch_metadata(
+                    source="yfinance",
+                    symbol=symbol,
+                    row_count=len(result_bars),
+                    checksum=checksum,
+                    timeframe=timeframe.value if hasattr(timeframe, "value") else str(timeframe),
+                )
+            except Exception:
+                pass
+
+        return result_bars
 
     async def stream_bars(
         self, symbols: Sequence[str], timeframe: Timeframe

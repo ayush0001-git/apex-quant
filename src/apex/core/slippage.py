@@ -61,11 +61,12 @@ class DynamicSlippageModel:
     """Calculates realistic dynamic execution slippage for Indian equities."""
 
     def __init__(self, friction_settings: Optional[FrictionSettings] = None) -> None:
-        self.base_slippage = friction_settings.default_slippage_pct if friction_settings else 0.0005
+        # Calibrated against expanded NIFTY 100/200 TCA: 7 bps baseline, k=0.15 impact
+        self.base_slippage = friction_settings.default_slippage_pct if friction_settings else 0.0007
         self.min_slippage = getattr(friction_settings, "min_slippage_pct", 0.0002) if friction_settings else 0.0002
         self.max_slippage = getattr(friction_settings, "max_slippage_pct", 0.0050) if friction_settings else 0.0050
-        self.vol_factor = getattr(friction_settings, "slippage_vol_factor", 0.5) if friction_settings else 0.5
-        self.impact_factor = getattr(friction_settings, "slippage_impact_factor", 0.1) if friction_settings else 0.1
+        self.vol_factor = getattr(friction_settings, "slippage_vol_factor", 0.6) if friction_settings else 0.6
+        self.impact_factor = getattr(friction_settings, "slippage_impact_factor", 0.15) if friction_settings else 0.15
         self.latency_ms = getattr(friction_settings, "execution_latency_ms", 150.0) if friction_settings else 150.0
 
     def calculate_slippage_pct(
