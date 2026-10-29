@@ -1,10 +1,9 @@
-﻿# apex-quant/src/apex/adapters/llm/free_pool.py
+# apex-quant/src/apex/adapters/llm/free_pool.py
 """FreePoolAdapter: Background / pre-market batch scanning.
 
 Strictly prohibited from implementing synthesize() to eliminate zero-SLA execution risks.
 """
 from typing import Sequence
-import aiohttp
 from ...domain.models import FeatureSnapshot, Forecast, DebateResult
 from ...ports.llm_port import LLMPort
 
