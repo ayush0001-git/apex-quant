@@ -21,3 +21,4 @@ EXPOSE 8000
 
 # Run uvicorn server
 CMD ["python", "-m", "uvicorn", "src.apex.interface.api:app", "--host", "0.0.0.0", "--port", "8000"]
+

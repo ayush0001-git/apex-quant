@@ -28,3 +28,4 @@ These bullet points are crafted to highlight specific competencies for three dis
 * **Streamlined pre-market and swing analysis workflows by 95%**, automating the manual cross-referencing of 23+ liquid assets into an instantaneous multi-factor screening and ranking engine.
 * **Automated 100% of regulatory cost accounting (SEBI, STT, GST, Stamp Duty)** into trade expectancy modeling, preventing capital loss from high-turnover churn and guaranteeing asymmetric risk-to-reward profiles ($\ge 1:1.85$).
 * **Established product governance and technical decision logs (ADRs)** detailing trade-offs for two-tier split-brain LLM topologies, cutting external API token costs by 94% while maintaining sub-30-second decision SLAs.
+

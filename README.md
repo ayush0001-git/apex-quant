@@ -168,8 +168,11 @@ Track ongoing engineering and contribute via the [GitHub Issues Backlog](https:/
 
 * **[Issue #1](https://github.com/ayush0001-git/apex-quant/issues/1)**: `[Roadmap] Live Broker Integration: Zerodha Kite Connect SDK adapter (BrokerPort)`
 * **[Issue #2](https://github.com/ayush0001-git/apex-quant/issues/2)**: `[Feature] Options-Chain Analytics: Black-Scholes Greeks & Implied Volatility (IV) Surface`
-* **[Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)**: `[Data Engineering] Level-2 Order Book Ingestion & Dynamic Slippage Estimator`
-* **[Issue #4](https://github.com/ayush0001-git/apex-quant/issues/4)**: `[Risk Engine] Portfolio Multi-Asset VaR (Value-at-Risk) & Monte Carlo Stress Testing`
+* **[Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)**: ✅ `[RESOLVED] Market Microstructure (OFI, Kyle's Lambda) & Dynamic Slippage Estimator` (Implemented in `src/apex/core/slippage.py` & `src/apex/core/microstructure.py`)
+* **[Issue #4](https://github.com/ayush0001-git/apex-quant/issues/4)**: ✅ `[RESOLVED] Portfolio Multi-Asset VaR (Value-at-Risk), CVaR & Monte Carlo Stress Testing` (Implemented in `src/apex/core/portfolio_risk.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Cross-Sectional Factor Engine & Carhart 4-Factor Alpha` (Implemented in `src/apex/core/factors.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Survivorship-Bias-Free Historical Bhavcopy Ingestion & Universe Expansion (NIFTY 50/100)` (Implemented in `src/apex/adapters/data/bhavcopy_adapter.py` & `src/apex/core/scanner.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Combinatorial Purged Cross-Validation (CPCV), PBO & Deflated Sharpe Ratio (DSR)` (Implemented in `src/apex/core/validation.py`)
 
 ---
 

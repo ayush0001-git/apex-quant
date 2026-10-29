@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/core/features.py
+# apex-quant/src/apex/core/features.py
 """FeatureService: Stateless, lookahead-bias-free technical and pattern analysis.
 
 Enforces:
@@ -14,6 +14,8 @@ import pandas as pd
 from ..domain.models import Bar, FeatureSnapshot
 from ..domain.enums import MarketRegime
 from .ingestion import DataQualityError
+from .factors import FactorService
+from .regime import RegimeClassifier
 
 
 class FeatureService:
@@ -86,9 +88,17 @@ class FeatureService:
         bb_lower = bb_mid - (2.0 * bb_std)
         bb_width = ((bb_upper - bb_lower) / (bb_mid + 1e-10)) * 100
 
-        # 5. Volume SMA and Volume Ratio
+        # 5. Volume SMA and Volume Ratio & Z-score
         vol_sma20 = volume.rolling(20, min_periods=5).mean()
+        vol_std20 = volume.rolling(20, min_periods=5).std().fillna(1.0)
         vol_ratio = float(volume.iloc[-1] / (vol_sma20.iloc[-1] + 1e-10))
+        vol_zscore = float((volume.iloc[-1] - vol_sma20.iloc[-1]) / (vol_std20.iloc[-1] + 1e-10))
+
+        # 5b. Momentum (20) & Realized Volatility (20)
+        mom20 = float(((close.iloc[-1] - close.iloc[max(0, n - 20)]) / (close.iloc[max(0, n - 20)] + 1e-10)) * 100.0) if n >= 20 else 0.0
+        log_rets = np.diff(np.log(close.iloc[-21:])) if n >= 21 else np.array([0.01])
+        daily_std = float(np.std(log_rets, ddof=1)) if len(log_rets) > 1 else 0.015
+        realized_vol20 = float(daily_std * np.sqrt(252) * 100.0)
 
         # 6. Anchored VWAP (calculated over current bar slice)
         typical_price = (high + low + close) / 3.0
@@ -111,17 +121,18 @@ class FeatureService:
         # 7. Non-repainting Candlestick Pattern Recognition on closed bars
         patterns = FeatureService._detect_patterns(df, c_atr)
 
-        # 8. Market Regime Detection
-        regime = FeatureService._detect_regime(
-            spot=current_spot,
-            ema50=c_ema50,
-            ema200=c_ema200,
-            rsi=c_rsi,
-            bb_width=c_bb_width,
-        )
+        # 8. Volatility Gate & Institutional Regime Detection
+        vol_gate = RegimeClassifier.compute_volatility_gate(bars)
+        regime = RegimeClassifier.classify_regime(bars)
 
-        # 9. Confluence Score (0.0 to 100.0)
-        confluence_score = FeatureService._calculate_confluence(
+        # 9. Factor Exposures (Momentum, Realized Vol, Quality, Liquidity)
+        try:
+            factors = FactorService.compute_single_asset_factors(bars)
+        except Exception:
+            factors = {}
+
+        # 10. Confluence Score (0.0 to 100.0) - conditioned by volatility gate
+        raw_confluence = FeatureService._calculate_confluence(
             spot=current_spot,
             ema50=c_ema50,
             ema200=c_ema200,
@@ -130,6 +141,8 @@ class FeatureService:
             vol_ratio=vol_ratio,
             patterns=patterns,
         )
+        # Demote TA: Dampen technical score during high-volatility turbulence
+        confluence_score = raw_confluence * (0.8 + 0.2 * vol_gate)
 
         indicators = {
             "ema_20": round(c_ema20, 2),
@@ -143,6 +156,10 @@ class FeatureService:
             "bb_lower": round(c_bb_lower, 2),
             "bb_width_pct": round(c_bb_width, 2),
             "volume_ratio": round(vol_ratio, 2),
+            "volume_zscore": round(vol_zscore, 2),
+            "momentum_20": round(mom20, 2),
+            "realized_vol_20": round(realized_vol20, 2),
+            "volatility_gate": round(vol_gate, 3),
         }
 
         return FeatureSnapshot(
@@ -154,6 +171,8 @@ class FeatureService:
             confluence_score=round(confluence_score, 1),
             volume_ratio=round(vol_ratio, 2),
             regime=regime,
+            factor_exposures=factors,
+            volatility_gate=round(vol_gate, 3),
         )
 
     @staticmethod

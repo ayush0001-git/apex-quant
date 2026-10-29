@@ -78,3 +78,4 @@ Quant models are only as good as an analyst's ability to interpret and act on th
 * **GitHub Repository**: [https://github.com/ayush0001-git/apex-quant](https://github.com/ayush0001-git/apex-quant)
 * **Live Test Suite**: 43/43 Passing on GitHub Actions CI
 * **Documentation**: Architecture Specifications, Data Integrity Pipeline, and ADRs included in `/docs`.
+

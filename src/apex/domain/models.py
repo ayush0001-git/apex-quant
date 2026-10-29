@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/domain/models.py
+# apex-quant/src/apex/domain/models.py
 """Pure data contracts shared across all modules. Zero dependencies."""
 from dataclasses import dataclass
 from datetime import datetime
@@ -33,6 +33,8 @@ class FeatureSnapshot:
     confluence_score: float
     volume_ratio: float
     regime: MarketRegime
+    factor_exposures: Mapping[str, float] | None = None
+    volatility_gate: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,8 @@ class DebateResult:
     stop_loss: float
     targets: tuple[float, ...]
     reasoning_hash: str
+    confidence_score: float = 0.0
+    agent_scores: Mapping[str, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,10 @@ class RiskDecision:
     max_capital_risk_pct: float
     net_rr_ratio: float
     estimated_statutory_friction: float
+    dynamic_slippage_bps: float = 5.0
+    portfolio_var_95_pct: float = 0.0
+    portfolio_cvar_95_pct: float = 0.0
+    defensive_multiplier: float = 1.0
 
 
 @dataclass(frozen=True)

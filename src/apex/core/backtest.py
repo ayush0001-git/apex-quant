@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/core/backtest.py
+# apex-quant/src/apex/core/backtest.py
 """BacktestEngine: Historical bar-by-bar simulation with strict causality and statutory friction.
 
 Guarantees:
@@ -18,6 +18,8 @@ from .forecast import ForecastService
 from .decision import DecisionEngine
 from .risk import RiskGate
 from ..domain.config import Settings
+from .slippage import DynamicSlippageModel
+from .validation import InstitutionalValidator
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,10 @@ class BacktestSummary:
     sharpe_ratio: float
     trades: List[SimulatedTrade]
     equity_curve: List[float]
+    deflated_sharpe_ratio: float = 0.0
+    probability_of_overfitting: float = 0.0
+    cvar_95_pct: float = 0.0
+    avg_slippage_bps: float = 5.0
 
 
 class BacktestEngine:
@@ -70,9 +76,18 @@ class BacktestEngine:
         self.forecast = ForecastService()
         self.decision = DecisionEngine()
         self.risk = RiskGate(settings=self.settings)
+        self.slippage_model = DynamicSlippageModel(self.settings.friction)
 
-    def calculate_statutory_friction(self, turnover: float, shares: float, is_buy: bool) -> float:
-        """Calculates precise statutory transaction costs according to SEBI & Indian tax schedules."""
+    def calculate_statutory_friction(
+        self,
+        turnover: float,
+        shares: float,
+        is_buy: bool,
+        volume_ratio: float = 1.0,
+        volatility_pct: float = 0.015,
+        spot_price: float = 0.0,
+    ) -> float:
+        """Calculates precise statutory transaction costs and dynamic execution slippage."""
         # Brokerage: flat ₹20 or 0.05%
         brokerage = min(20.0, turnover * 0.0005)
         
@@ -91,8 +106,16 @@ class BacktestEngine:
         # Stamp duty: 0.015% on buy order turnover
         stamp_duty = turnover * 0.00015 if is_buy else 0.0
         
-        # Slippage: 0.05% execution impact
-        slippage = turnover * self.settings.friction.default_slippage_pct
+        # Dynamic Market Slippage (Kyle's lambda & volume/volatility conditioned)
+        effective_spot = spot_price or (turnover / (shares + 1e-8))
+        slippage_quote = self.slippage_model.estimate_slippage(
+            turnover=turnover,
+            shares=shares,
+            spot_price=effective_spot,
+            volume_ratio=volume_ratio,
+            volatility_pct=volatility_pct,
+        )
+        slippage = slippage_quote.slippage_inr
         
         return round(brokerage + stt + exchange_charges + gst + sebi_charges + stamp_duty + slippage, 2)
 
@@ -196,7 +219,13 @@ class BacktestEngine:
                     shares = risk_decision.position_size or 10.0
                     entry_price = current_bar.close
                     buy_turnover = entry_price * shares
-                    entry_friction = self.calculate_statutory_friction(buy_turnover, shares, is_buy=True)
+                    entry_friction = self.calculate_statutory_friction(
+                        buy_turnover,
+                        shares,
+                        is_buy=True,
+                        volume_ratio=features_snapshot.volume_ratio,
+                        spot_price=entry_price,
+                    )
 
                     active_position = {
                         "symbol": current_bar.symbol,
@@ -238,6 +267,19 @@ class BacktestEngine:
         else:
             sharpe_ratio = 0.0
 
+        # Institutional validation metrics: DSR, PBO, and CVaR
+        if total_trades >= 5:
+            returns = [t.return_pct for t in trades]
+            val_report = InstitutionalValidator.evaluate_strategy_integrity(returns)
+            dsr = val_report.deflated_sharpe_ratio
+            pbo = val_report.probability_of_overfitting
+            neg_returns = [r for r in returns if r < 0]
+            cvar = round(abs(float(sum(neg_returns) / len(neg_returns))), 2) if neg_returns else 0.0
+        else:
+            dsr = 0.0
+            pbo = 0.0
+            cvar = 0.0
+
         return BacktestSummary(
             symbol=bars[0].symbol if bars else "UNKNOWN",
             timeframe=bars[0].timeframe.value if bars else "15m",
@@ -257,4 +299,7 @@ class BacktestEngine:
             sharpe_ratio=sharpe_ratio,
             trades=trades,
             equity_curve=equity_curve,
+            deflated_sharpe_ratio=dsr,
+            probability_of_overfitting=pbo,
+            cvar_95_pct=cvar,
         )

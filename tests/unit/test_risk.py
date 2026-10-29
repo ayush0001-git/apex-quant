@@ -1,4 +1,4 @@
-﻿# apex-quant/tests/unit/test_risk.py
+# apex-quant/tests/unit/test_risk.py
 """Unit tests for RiskGate deterministic mathematical validations."""
 from datetime import datetime
 import pytest
@@ -86,3 +86,58 @@ def test_risk_gate_consecutive_loss_throttle():
     assert normal_decision.status == GateStatus.APPROVED
     assert throttled_decision.status == GateStatus.APPROVED
     assert throttled_decision.position_size == normal_decision.position_size // 2
+
+
+def test_risk_gate_llm_defensive_throttle():
+    settings = Settings.load()
+    gate = RiskGate(settings)
+    
+    # Construct intent where debate confidence is divergent / contrarian warning (-0.6)
+    features = FeatureSnapshot(
+        symbol="RELIANCE.NS",
+        timestamp=datetime(2026, 10, 23, 15, 0),
+        spot_price=1000.0,
+        indicators={"atr_14": 15.0},
+        patterns=(),
+        confluence_score=80.0,
+        volume_ratio=1.5,
+        regime=MarketRegime.BULL_EXPANSION,
+    )
+    debate_contrarian = DebateResult(
+        action=Direction.LONG,
+        conviction=40,
+        entry_zone=(998, 1002),
+        stop_loss=980.0,
+        targets=(1070.0,),
+        reasoning_hash="h_contrarian",
+        confidence_score=-0.6,
+    )
+    intent = TradeIntent(
+        symbol="RELIANCE.NS",
+        direction=Direction.LONG,
+        entry=1000.0,
+        stop=980.0,
+        targets=(1070.0,),
+        conviction=40,
+        feature_snapshot=features,
+        forecast=None,
+        debate=debate_contrarian,
+    )
+    
+    decision = gate.evaluate(intent, portfolio_equity=100000.0)
+    assert decision.status == GateStatus.APPROVED
+    assert decision.defensive_multiplier < 1.0
+    assert decision.defensive_multiplier >= 0.5
+
+
+def test_risk_gate_portfolio_var_evaluation():
+    settings = Settings.load()
+    gate = RiskGate(settings)
+    
+    report = gate.evaluate_portfolio(
+        positions={"RELIANCE.NS": 20000.0, "TCS.NS": 15000.0},
+        historical_returns={"RELIANCE.NS": [0.01] * 30, "TCS.NS": [0.005] * 30},
+        total_equity=100000.0,
+    )
+    assert report.total_portfolio_equity == 100000.0
+    assert report.is_var_approved is True
