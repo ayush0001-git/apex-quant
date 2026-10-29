@@ -12,6 +12,7 @@ import math
 from typing import Sequence, List, Mapping, Any, Optional
 import numpy as np
 from ..domain.models import Bar
+from ..domain.orderbook import OrderBookDepth
 from .ingestion import DataQualityError
 
 
@@ -48,6 +49,63 @@ class MicrostructureService:
             ofi_sum += b.volume * delta
 
         return float(ofi_sum)
+
+    @staticmethod
+    def calculate_l2_ofi(prev_depth: OrderBookDepth, curr_depth: OrderBookDepth) -> float:
+        """Calculate exact Level-2 Order Flow Imbalance (OFI) across top-of-book.
+        
+        OFI = Delta B_t - Delta A_t
+        """
+        if not prev_depth.bids or not curr_depth.bids or not prev_depth.asks or not curr_depth.asks:
+            return 0.0
+
+        p_b_prev, q_b_prev = prev_depth.bids[0].price, prev_depth.bids[0].quantity
+        p_b_curr, q_b_curr = curr_depth.bids[0].price, curr_depth.bids[0].quantity
+
+        p_a_prev, q_a_prev = prev_depth.asks[0].price, prev_depth.asks[0].quantity
+        p_a_curr, q_a_curr = curr_depth.asks[0].price, curr_depth.asks[0].quantity
+
+        # Bid delta
+        if p_b_curr > p_b_prev:
+            delta_b = q_b_curr
+        elif p_b_curr == p_b_prev:
+            delta_b = q_b_curr - q_b_prev
+        else:
+            delta_b = -q_b_prev
+
+        # Ask delta
+        if p_a_curr > p_a_prev:
+            delta_a = -q_a_prev
+        elif p_a_curr == p_a_prev:
+            delta_a = q_a_curr - q_a_prev
+        else:
+            delta_a = q_a_curr
+
+        return float(delta_b - delta_a)
+
+    @staticmethod
+    def calculate_queue_imbalance(depth: OrderBookDepth) -> float:
+        """Compute Order Book Queue Imbalance across all available depth levels.
+        
+        Imbalance = (Total Bid Volume - Total Ask Volume) / (Total Bid Volume + Total Ask Volume)
+        Returns scalar in [-1.0, 1.0]. Positive values indicate heavy buying queue pressure.
+        """
+        total_bid_vol = sum(b.quantity for b in depth.bids)
+        total_ask_vol = sum(a.quantity for a in depth.asks)
+        denom = total_bid_vol + total_ask_vol
+        if denom <= 0:
+            return 0.0
+        return round(float((total_bid_vol - total_ask_vol) / denom), 3)
+
+    @staticmethod
+    def calculate_depth_weighted_spread(depth: OrderBookDepth) -> float:
+        """Compute spread in basis points from top-of-book."""
+        if not depth.bids or not depth.asks:
+            return 5.0
+        mid = depth.mid_price
+        if mid <= 0:
+            return 5.0
+        return round(max(1.0, float((depth.spread / mid) * 10000.0)), 2)
 
     @staticmethod
     def estimate_kyle_lambda(bars: Sequence[Bar]) -> float:

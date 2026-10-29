@@ -35,6 +35,8 @@ class FeatureSnapshot:
     regime: MarketRegime
     factor_exposures: Mapping[str, float] | None = None
     volatility_gate: float = 1.0
+    hmm_state: int = 0
+    hmm_probabilities: tuple[float, float, float] = (1.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True)

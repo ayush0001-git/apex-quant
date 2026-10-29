@@ -17,10 +17,12 @@ from .scanner import (
 )
 from .slippage import DynamicSlippageModel, SlippageQuote
 from .factors import FactorService, FactorExposures
-from .regime import RegimeClassifier
+from .regime import RegimeClassifier, GaussianHMMRegimeDetector, HMMRegimeOutput
 from .microstructure import MicrostructureService, MicrostructureSnapshot
 from .portfolio_risk import PortfolioRiskEngine, PortfolioRiskReport, StressTestResult
 from .validation import InstitutionalValidator, ValidationReport
+from .options import OptionContract, OptionsChainSnapshot, OptionsAnalyticsEngine
+from .allocator import MultiStrategyAllocator, SubStrategyProfile, StrategyAllocationReport
 
 __all__ = [
     "IngestionService",
@@ -44,6 +46,8 @@ __all__ = [
     "FactorService",
     "FactorExposures",
     "RegimeClassifier",
+    "GaussianHMMRegimeDetector",
+    "HMMRegimeOutput",
     "MicrostructureService",
     "MicrostructureSnapshot",
     "PortfolioRiskEngine",
@@ -51,5 +55,10 @@ __all__ = [
     "StressTestResult",
     "InstitutionalValidator",
     "ValidationReport",
+    "OptionContract",
+    "OptionsChainSnapshot",
+    "OptionsAnalyticsEngine",
+    "MultiStrategyAllocator",
+    "SubStrategyProfile",
+    "StrategyAllocationReport",
 ]
-

@@ -253,3 +253,27 @@ apex-quant/
 - [x] **9.9 Bounded LLM Defensive Position Throttle (core/risk.py)**:
   - Quantified qualitative debate into bounded defensive multiplier (0.5x - 1.0x): scales down exposure when qualitative intelligence signals divergence without ever expanding mathematical risk limits.
 - [x] **9.10 Full Verification**: **65 passed, 0 failed in 5.10s**.
+
+
+---
+
+### 🟩 Step 10: [COMPLETED] The Next Frontier (P2 / P3 Frontier Items Resolved)
+- [x] **10.1 Gaussian HMM 3-State Regime Classifier (`core/regime.py`)**:
+  - Unsupervised 3-state `hmmlearn.hmm.GaussianHMM` classifying into State 0 (Trend), State 1 (Compression), State 2 (Turbulence).
+  - Conditions factor weights and signal routing directly on HMM state probabilities.
+- [x] **10.2 Fundamental & Quality Factors Beyond Bhavcopy (`adapters/data/fundamental_adapter.py`)**:
+  - Ingests Piotroski 9-point F-score, EV/EBITDA, ROE, Debt-to-Equity, and FII/DII shareholding drift.
+  - Generates non-price quality composite alpha uncorrelated with TA signals.
+- [x] **10.3 Options-Chain Analytics & Greeks Surface (`core/options.py`)**:
+  - Exact Black-Scholes pricing and analytical Greeks (Delta, Gamma, Vega, Theta, Rho).
+  - Newton-Raphson Implied Volatility solver, Put-Call Ratio (PCR), Max Pain strike, and Net Gamma Exposure (GEX).
+- [x] **10.4 Level-2 Order Book Depth Ingestion (`adapters/data/orderbook_adapter.py` & `core/microstructure.py`)**:
+  - Ingests 5-depth and 20-depth order book snapshots with bid/ask queues.
+  - Computes exact Level-2 OFI, queue imbalance, and depth-weighted spreads.
+- [x] **10.5 Quantified Bounded LLM Position Sizing Throttle (`core/risk.py`)**:
+  - Transparent scalar confidence $[-1.0, 1.0]$ in `DebateResult`.
+  - Scales position down boundedly ($0.5	imes - 1.0	imes$) when debate diverges, strictly preserving mathematical risk caps.
+- [x] **10.6 Multi-Strategy Allocation Layer (`core/allocator.py`)**:
+  - Blends Trend-Following, Mean-Reversion, and Factor streams using Risk Parity / Inverse Volatility.
+  - Enforces correlation-aware collinearity penalty when strategy returns exceed $\rho > 0.60$.
+- [x] **10.7 Full Test Suite Verified**: **77 passed, 0 failed in 12.26s**.

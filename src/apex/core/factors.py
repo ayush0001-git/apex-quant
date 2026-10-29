@@ -41,6 +41,12 @@ class FactorService:
         "quality": 0.20,
     }
 
+    HMM_WEIGHT_PROFILES = {
+        0: {"momentum": 0.45, "low_volatility": 0.15, "liquidity": 0.20, "quality": 0.20},  # Low-Vol Trend
+        1: {"momentum": 0.15, "low_volatility": 0.25, "liquidity": 0.20, "quality": 0.40},  # Range Compression / Mean Reversion
+        2: {"momentum": 0.05, "low_volatility": 0.45, "liquidity": 0.20, "quality": 0.30},  # High-Vol Turbulence
+    }
+
     @staticmethod
     def compute_single_asset_factors(bars: Sequence[Bar]) -> Dict[str, float]:
         """Compute raw time-series factor metrics on a sequence of closed bars."""
@@ -116,12 +122,14 @@ class FactorService:
         cls,
         universe_raw_factors: Mapping[str, Mapping[str, float]],
         weights: Optional[Mapping[str, float]] = None,
+        hmm_state: int = 0,
     ) -> Dict[str, FactorExposures]:
         """Normalize factors across an entire universe using cross-sectional Z-scores.
         
+        Dynamically adapts factor weights based on the prevailing HMM regime state.
         Outputs ranked FactorExposures with composite alpha scores from -100 to +100.
         """
-        w = weights or cls.DEFAULT_WEIGHTS
+        w = weights or cls.HMM_WEIGHT_PROFILES.get(hmm_state, cls.DEFAULT_WEIGHTS)
         symbols = list(universe_raw_factors.keys())
         if not symbols:
             return {}

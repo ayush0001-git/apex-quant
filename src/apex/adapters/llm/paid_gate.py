@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/adapters/llm/paid_gate.py
+# apex-quant/src/apex/adapters/llm/paid_gate.py
 """PaidGateAdapter: Dedicated high-reliability model for Bull/Bear adversarial synthesis.
 
 Features:
@@ -99,6 +99,22 @@ class PaidGateAdapter(LLMPort):
         reason_str = f"{symbol}:{action.value}:{conviction}:{features.timestamp}"
         reasoning_hash = hashlib.sha256(reason_str.encode("utf-8")).hexdigest()
 
+        # Quantified multi-agent scalar confidence in [-1.0, 1.0]
+        if action == Direction.LONG:
+            confidence = (conviction - 50.0) / 45.0
+        elif action == Direction.SHORT:
+            confidence = -(conviction - 50.0) / 45.0
+        else:
+            confidence = 0.0
+
+        confidence = max(-1.0, min(1.0, float(confidence)))
+
+        agent_scores = {
+            "technical": round(confluence / 100.0, 2),
+            "quantitative": round(dir_prob, 2),
+            "contrarian": round(confidence, 2),
+        }
+
         return DebateResult(
             action=action,
             conviction=conviction,
@@ -106,4 +122,6 @@ class PaidGateAdapter(LLMPort):
             stop_loss=stop_loss,
             targets=(t1, t2),
             reasoning_hash=reasoning_hash,
+            confidence_score=round(confidence, 2),
+            agent_scores=agent_scores,
         )

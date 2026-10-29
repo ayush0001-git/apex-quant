@@ -180,10 +180,16 @@ class RiskGate:
 
         net_rr = net_profit / max_risk_capital
 
+        approval_reason = (
+            f"All risk parameters passed. LLM defensive throttle active ({defensive_multiplier:.2f}x sizing) due to debate divergence."
+            if defensive_multiplier < 1.0
+            else "All risk parameters, drawdown bounds, dynamic slippage, and friction hurdles passed."
+        )
+
         # 6. Approved!
         return RiskDecision(
             status=GateStatus.APPROVED,
-            reason="All risk parameters, drawdown bounds, dynamic slippage, and friction hurdles passed.",
+            reason=approval_reason,
             kill_reason=KillReason.NONE,
             position_size=float(target_quantity),
             max_capital_risk_pct=round(self.settings.risk.max_position_pct * throttle_multiplier * 100, 2),

@@ -166,10 +166,14 @@ In the spirit of institutional rigor, the current version operates under specifi
 
 Track ongoing engineering and contribute via the [GitHub Issues Backlog](https://github.com/ayush0001-git/apex-quant/issues):
 
-* **[Issue #1](https://github.com/ayush0001-git/apex-quant/issues/1)**: `[Roadmap] Live Broker Integration: Zerodha Kite Connect SDK adapter (BrokerPort)`
-* **[Issue #2](https://github.com/ayush0001-git/apex-quant/issues/2)**: `[Feature] Options-Chain Analytics: Black-Scholes Greeks & Implied Volatility (IV) Surface`
-* **[Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)**: ✅ `[RESOLVED] Market Microstructure (OFI, Kyle's Lambda) & Dynamic Slippage Estimator` (Implemented in `src/apex/core/slippage.py` & `src/apex/core/microstructure.py`)
-* **[Issue #4](https://github.com/ayush0001-git/apex-quant/issues/4)**: ✅ `[RESOLVED] Portfolio Multi-Asset VaR (Value-at-Risk), CVaR & Monte Carlo Stress Testing` (Implemented in `src/apex/core/portfolio_risk.py`)
+* **[Issue #1](https://github.com/ayush0001-git/apex-quant/issues/1)**: `[Roadmap] Live Broker Integration: Zerodha Kite Connect SDK adapter (BrokerPort)` [Step 8 Deferred]
+* **[Issue #2](https://github.com/ayush0001-git/apex-quant/issues/2)**: ✅ `[RESOLVED] Options-Chain Analytics: Black-Scholes Greeks, Implied Volatility Surface, PCR & Max Pain` (Implemented in `src/apex/core/options.py`)
+* **[Issue #3](https://github.com/ayush0001-git/apex-quant/issues/3)**: ✅ `[RESOLVED] Level-2 Order Book Depth Ingestion, L2 OFI, Queue Imbalance & Dynamic Slippage` (Implemented in `src/apex/adapters/data/orderbook_adapter.py`, `src/apex/core/slippage.py`, `src/apex/core/microstructure.py`)
+* **[Issue #4](https://github.com/ayush0001-git/apex-quant/issues/4)**: ✅ `[RESOLVED] Portfolio Multi-Asset VaR, Expected Shortfall (CVaR) & Monte Carlo Stress Testing` (Implemented in `src/apex/core/portfolio_risk.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Gaussian HMM 3-State Regime Classifier & Volatility-Conditioned Gating` (Implemented in `src/apex/core/regime.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Fundamental/Quality Factors (Piotroski Score, EV/EBITDA, Shareholding Drift)` (Implemented in `src/apex/adapters/data/fundamental_adapter.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Multi-Strategy Allocator with Risk Parity & Collinearity Penalty` (Implemented in `src/apex/core/allocator.py`)
+* **[Institutional Upgrade]**: ✅ `[RESOLVED] Quantified Bounded LLM Defensive Throttle (0.5x - 1.0x)` (Implemented in `src/apex/core/risk.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Cross-Sectional Factor Engine & Carhart 4-Factor Alpha` (Implemented in `src/apex/core/factors.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Survivorship-Bias-Free Historical Bhavcopy Ingestion & Universe Expansion (NIFTY 50/100)` (Implemented in `src/apex/adapters/data/bhavcopy_adapter.py` & `src/apex/core/scanner.py`)
 * **[Institutional Upgrade]**: ✅ `[RESOLVED] Combinatorial Purged Cross-Validation (CPCV), PBO & Deflated Sharpe Ratio (DSR)` (Implemented in `src/apex/core/validation.py`)

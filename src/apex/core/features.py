@@ -15,7 +15,7 @@ from ..domain.models import Bar, FeatureSnapshot
 from ..domain.enums import MarketRegime
 from .ingestion import DataQualityError
 from .factors import FactorService
-from .regime import RegimeClassifier
+from .regime import RegimeClassifier, GaussianHMMRegimeDetector
 
 
 class FeatureService:
@@ -121,8 +121,9 @@ class FeatureService:
         # 7. Non-repainting Candlestick Pattern Recognition on closed bars
         patterns = FeatureService._detect_patterns(df, c_atr)
 
-        # 8. Volatility Gate & Institutional Regime Detection
-        vol_gate = RegimeClassifier.compute_volatility_gate(bars)
+        # 8. Volatility Gate, Institutional Regime Detection & Gaussian HMM State
+        hmm_output = GaussianHMMRegimeDetector.detect_regime(bars)
+        vol_gate = min(RegimeClassifier.compute_volatility_gate(bars), hmm_output.volatility_gate)
         regime = RegimeClassifier.classify_regime(bars)
 
         # 9. Factor Exposures (Momentum, Realized Vol, Quality, Liquidity)
@@ -131,7 +132,7 @@ class FeatureService:
         except Exception:
             factors = {}
 
-        # 10. Confluence Score (0.0 to 100.0) - conditioned by volatility gate
+        # 10. Confluence Score (0.0 to 100.0) - conditioned by volatility gate and HMM state
         raw_confluence = FeatureService._calculate_confluence(
             spot=current_spot,
             ema50=c_ema50,
@@ -160,6 +161,7 @@ class FeatureService:
             "momentum_20": round(mom20, 2),
             "realized_vol_20": round(realized_vol20, 2),
             "volatility_gate": round(vol_gate, 3),
+            "hmm_state": float(hmm_output.state_id),
         }
 
         return FeatureSnapshot(
@@ -173,6 +175,8 @@ class FeatureService:
             regime=regime,
             factor_exposures=factors,
             volatility_gate=round(vol_gate, 3),
+            hmm_state=hmm_output.state_id,
+            hmm_probabilities=hmm_output.state_probabilities,
         )
 
     @staticmethod
