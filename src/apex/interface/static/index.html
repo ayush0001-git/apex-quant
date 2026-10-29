@@ -1,0 +1,2555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Quant-Terminal // Institutional NSE-BSE Decision Support</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="/static/lightweight-charts.standalone.production.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #070a12;
+      --bg-card: rgba(15, 23, 42, 0.85);
+      --bg-card-subtle: rgba(15, 23, 42, 0.55);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(6, 182, 212, 0.35);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --bull-primary: #10b981;
+      --bull-glow: rgba(16, 185, 129, 0.18);
+      --bear-primary: #f43f5e;
+      --bear-glow: rgba(244, 63, 94, 0.18);
+      --cyan-accent: #06b6d4;
+      --violet-accent: #8b5cf6;
+      --amber-accent: #f59e0b;
+      --blue-accent: #38bdf8;
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: rgba(10, 15, 29, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      background: linear-gradient(135deg, var(--cyan-accent), var(--violet-accent));
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-family: var(--font-display); color: #000; font-size: 15px;
+    }
+    .brand h1 { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.5px; }
+    .market-badge {
+      font-family: var(--font-mono); font-size: 10px;
+      background: rgba(6, 182, 212, 0.12); color: var(--cyan-accent);
+      border: 1px solid rgba(6, 182, 212, 0.3); padding: 2px 8px; border-radius: 99px; font-weight: 600;
+    }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .market-status {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    }
+    .status-dot { width: 8px; height: 8px; background: var(--bull-primary); border-radius: 50%; box-shadow: 0 0 8px var(--bull-primary); }
+    .nav-btn {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle);
+      color: var(--text-main); padding: 5px 12px; border-radius: 6px; cursor: pointer;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .nav-btn:hover { background: rgba(6, 182, 212, 0.15); border-color: var(--cyan-accent); color: var(--cyan-accent); }
+    .mode-switch {
+      display: flex; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle);
+      border-radius: 6px; padding: 2px;
+    }
+    .mode-btn {
+      padding: 4px 10px; font-family: var(--font-mono); font-size: 11px;
+      border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 4px;
+    }
+    .mode-btn.active { background: var(--cyan-accent); color: #000; font-weight: 700; }
+
+    /* ── 20k Capital Swing Picks Bar ── */
+    .rec-cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      padding: 12px 24px 4px;
+    }
+    .rec-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .rec-card:hover {
+      border-color: var(--cyan-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+    .rec-card.active {
+      border-color: var(--cyan-accent);
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(15, 23, 42, 0.95));
+      box-shadow: 0 0 0 1px var(--cyan-accent), 0 4px 16px rgba(6, 182, 212, 0.2);
+    }
+    .rec-card-top {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+    }
+    .rec-symbol { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+    .rec-badge {
+      font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
+    }
+    .badge-rank1 { background: rgba(16, 185, 129, 0.2); color: var(--bull-primary); border: 1px solid var(--bull-primary); }
+    .badge-rank2 { background: rgba(6, 182, 212, 0.2); color: var(--cyan-accent); border: 1px solid var(--cyan-accent); }
+    .badge-rank3 { background: rgba(245, 158, 11, 0.2); color: var(--amber-accent); border: 1px solid var(--amber-accent); }
+    .badge-rank4 { background: rgba(139, 92, 246, 0.2); color: var(--violet-accent); border: 1px solid var(--violet-accent); }
+    .rec-metrics {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px;
+      font-family: var(--font-mono); font-size: 11px;
+    }
+    .rec-metric-item { display: flex; justify-content: space-between; color: var(--text-muted); }
+    .rec-val-risk { color: #f43f5e; font-weight: 600; }
+    .rec-val-profit { color: var(--bull-primary); font-weight: 700; }
+
+    /* ── Main Two-Column App Layout ── */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 16px;
+      padding: 8px 24px 20px;
+      flex: 1;
+    }
+    .panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    /* ── Asset Dossier Bar ── */
+    .asset-dossier-header {
+      padding: 10px 18px 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .asset-id h2 { font-family: var(--font-display); font-size: 22px; font-weight: 800; display: inline-block; }
+    .asset-id span { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-left: 8px; }
+    .price-box { display: flex; align-items: center; gap: 10px; }
+    .spot-price { font-family: var(--font-mono); font-size: 24px; font-weight: 700; color: #fff; }
+    .regime-badge {
+      font-family: var(--font-mono); font-size: 10px; padding: 3px 8px; border-radius: 4px;
+      font-weight: 700; text-transform: uppercase;
+    }
+    .regime-bull { background: rgba(16, 185, 129, 0.15); color: var(--bull-primary); border: 1px solid var(--bull-primary); }
+    .regime-bear { background: rgba(244, 63, 94, 0.15); color: var(--bear-primary); border: 1px solid var(--bear-primary); }
+    .regime-range { background: rgba(245, 158, 11, 0.15); color: var(--amber-accent); border: 1px solid var(--amber-accent); }
+
+    .trade-status-pill {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+      padding: 4px 10px; border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle);
+      color: var(--text-muted); display: flex; align-items: center; gap: 6px;
+    }
+    .status-in-trade { color: var(--cyan-accent); border-color: var(--cyan-accent); background: rgba(6,182,212,0.15); }
+    .status-win { color: var(--bull-primary); border-color: var(--bull-primary); background: rgba(16,185,129,0.18); }
+    .status-loss { color: var(--bear-primary); border-color: var(--bear-primary); background: rgba(244,63,94,0.18); }
+
+    /* ── Chart Replay & Rewind Controller Bar ── */
+    .replay-bar {
+      margin: 0 16px;
+      background: rgba(10, 15, 28, 0.95);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .replay-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .replay-btn:hover { background: rgba(6, 182, 212, 0.2); border-color: var(--cyan-accent); color: var(--cyan-accent); }
+    .replay-slider {
+      flex: 1;
+      accent-color: var(--cyan-accent);
+      cursor: pointer;
+    }
+    .speed-pills { display: flex; gap: 4px; }
+    .speed-pill {
+      font-family: var(--font-mono); font-size: 10px; padding: 2px 6px;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+    }
+    .speed-pill.active { background: var(--cyan-accent); color: #000; font-weight: 700; border-color: var(--cyan-accent); }
+
+    /* ── Chart Toolbar & Toggles ── */
+    .chart-toolbar {
+      padding: 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .tool-toggles { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 3px 9px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      transition: all 0.15s;
+    }
+    .tool-btn:hover { color: #fff; border-color: var(--text-muted); }
+    .tool-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--cyan-accent);
+      color: var(--cyan-accent);
+      font-weight: 600;
+    }
+    .view-tab-btn {
+      background: transparent; border: 1px solid var(--border-subtle);
+      color: var(--text-dim); padding: 3px 10px; font-family: var(--font-mono); font-size: 11px;
+      cursor: pointer; border-radius: 5px;
+    }
+    .view-tab-btn.active { background: rgba(255,255,255,0.08); color: #fff; border-color: var(--text-muted); font-weight: 600; }
+
+    /* ── Canvas Chart Container ── */
+    .chart-container {
+      padding: 0 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 450px;
+    }
+    .chart-canvas-wrap {
+      background: #070c18;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+      flex: 1;
+      min-height: 450px;
+    }
+    #chartCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .chart-legend {
+      position: absolute;
+      top: 10px; left: 14px;
+      display: flex; gap: 12px;
+      font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+      background: rgba(7, 12, 24, 0.90);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      z-index: 5;
+    }
+    #hdChartContainer {
+      display: none;
+      background: #070c18;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      overflow: hidden;
+      min-height: 450px;
+    }
+    #hdChartImg { width: 100%; height: auto; display: block; object-fit: contain; }
+
+    /* ── Risk & Friction Bottom Banner ── */
+    .risk-banner {
+      margin: 0 16px 6px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(10, 17, 32, 0.95));
+      border: 1px solid var(--border-highlight);
+      border-radius: 10px;
+      padding: 8px 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .friction-breakdown { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+    .friction-val { color: var(--amber-accent); font-weight: 600; }
+    .gate-stamp {
+      padding: 6px 14px; border-radius: 6px; font-family: var(--font-display);
+      font-weight: 800; font-size: 12px; text-transform: uppercase; text-align: center;
+    }
+    .stamp-approved { background: rgba(16, 185, 129, 0.18); border: 1.5px solid var(--bull-primary); color: var(--bull-primary); }
+    .stamp-rejected { background: rgba(244, 63, 94, 0.18); border: 1.5px solid var(--bear-primary); color: var(--bear-primary); }
+
+    /* ── Right Panel: Tabbed Console (Dossier, Advisor, Radar, Backtest) ── */
+    .tab-nav {
+      display: flex;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(10, 15, 28, 0.85);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 8px; border: none; background: transparent;
+      color: var(--text-dim); font-family: var(--font-mono); font-size: 11px;
+      font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-main); }
+    .tab-btn.active { color: var(--cyan-accent); border-bottom-color: var(--cyan-accent); background: rgba(6, 182, 212, 0.05); }
+
+    .tab-content { display: none; flex: 1; overflow-y: auto; }
+    .tab-content.active { display: flex; flex-direction: column; }
+
+    /* ── Tab 1: Stock Intelligence Dossier & Indicators ── */
+    .dossier-scroll {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    /* Stock Profile Card */
+    .profile-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .profile-hdr {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;
+    }
+    .profile-name { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+    .profile-sector { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+    .profile-rank {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+      color: var(--bull-primary); background: rgba(16,185,129,0.12);
+      padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.3);
+    }
+
+    /* Quantitative Score Metrics Grid */
+    .quant-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .quant-item {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .quant-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+    .quant-val { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 2px; }
+
+    /* 15-Day Swing Trade Blueprint Table */
+    .trade-plan-card {
+      background: rgba(6, 182, 212, 0.04);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .card-title {
+      font-family: var(--font-display); font-size: 12px; font-weight: 700;
+      color: var(--cyan-accent); text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .plan-table {
+      width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px;
+    }
+    .plan-table td { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .plan-table td:last-child { text-align: right; font-weight: 600; }
+    .plan-label { color: var(--text-muted); }
+    .val-entry { color: var(--blue-accent); }
+    .val-target { color: var(--bull-primary); font-weight: 700; }
+    .val-stop { color: var(--bear-primary); font-weight: 700; }
+
+    /* Interactive Indicator Deck (Toggles with Live values) */
+    .indicator-deck-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .ind-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .ind-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 6px; padding: 6px 10px;
+      font-family: var(--font-mono); font-size: 11px;
+    }
+    .ind-left { display: flex; align-items: center; gap: 8px; }
+    .ind-color { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    .ind-name { font-weight: 500; color: var(--text-main); }
+    .ind-value { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
+    .ind-switch {
+      background: rgba(255,255,255,0.08); border: 1px solid var(--border-subtle);
+      color: var(--text-dim); padding: 2px 8px; border-radius: 4px; cursor: pointer;
+      font-size: 10px; font-weight: 700;
+    }
+    .ind-switch.active { background: rgba(16,185,129,0.2); color: var(--bull-primary); border-color: var(--bull-primary); }
+
+    /* Setup Checklist */
+    .checklist-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .check-item {
+      display: flex; align-items: center; gap: 8px; padding: 4px 0;
+      font-family: var(--font-body); font-size: 11px; color: var(--text-muted);
+    }
+    .check-icon { color: var(--bull-primary); font-weight: 700; font-size: 13px; }
+
+    /* ── Tab 2: AI Advisor ── */
+    .chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { padding: 10px 14px; border-radius: 8px; font-size: 12px; line-height: 1.5; max-width: 90%; }
+    .msg-bot { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); align-self: flex-start; }
+    .msg-user { background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: #fff; align-self: flex-end; }
+    .quick-chips { padding: 8px 14px; display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0; }
+    .quick-chip {
+      white-space: nowrap; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-subtle);
+      color: var(--text-muted); font-size: 10px; font-family: var(--font-mono); padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    }
+    .quick-chip:hover { border-color: var(--cyan-accent); color: var(--cyan-accent); }
+    .chat-input-area {
+      padding: 10px 14px; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; flex-shrink: 0;
+    }
+    .chat-input {
+      flex: 1; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-subtle);
+      color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-family: var(--font-body);
+    }
+    .chat-input:focus { outline: none; border-color: var(--cyan-accent); }
+    .chat-send-btn {
+      background: var(--cyan-accent); color: #000; border: none; padding: 8px 16px;
+      border-radius: 6px; font-weight: 700; font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+    }
+
+    /* ── Tab 3: Radar Scanner ── */
+    .scanner-table-wrap { flex: 1; overflow-y: auto; }
+    .scanner-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; }
+    .scanner-table th {
+      background: rgba(0, 0, 0, 0.4); color: var(--text-dim); text-align: left;
+      padding: 8px 12px; font-weight: 600; font-size: 10px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .scanner-table td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .scanner-table tr:hover { background: rgba(255, 255, 255, 0.02); cursor: pointer; }
+
+    /* ── Tab 4: Backtest Engine ── */
+    .audit-list { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .audit-item {
+      background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);
+      border-radius: 6px; padding: 8px 10px; font-family: var(--font-mono); font-size: 11px;
+    }
+    .audit-top { display: flex; justify-content: space-between; margin-bottom: 3px; }
+
+    /* Modal for Pine Script */
+    .modal-backdrop {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+      display: none; align-items: center; justify-content: center; z-index: 100;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-card {
+      background: var(--bg-card); border: 1px solid var(--border-highlight);
+      border-radius: 14px; width: 90%; max-width: 720px; max-height: 85vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border-subtle);
+      display: flex; justify-content: space-between; align-items: center; font-family: var(--font-display); font-weight: 700;
+    }
+    .modal-body {
+      flex: 1; padding: 16px 20px; overflow-y: auto; font-family: var(--font-mono);
+      font-size: 11px; background: rgba(0,0,0,0.4); line-height: 1.6; white-space: pre-wrap;
+    }
+    .modal-footer {
+      padding: 12px 20px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">AQ</div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h1>APEX QUANT-TERMINAL</h1>
+          <span class="market-badge">NSE / BSE PRO</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="market-status">
+        <span class="status-dot"></span>
+        <span>NSE ACTIVE // IST <span id="clock">--:--:--</span></span>
+      </div>
+      <button class="nav-btn" onclick="openPineModal()">
+        📊 Pine Script v5
+      </button>
+      <a class="nav-btn" href="/replay" style="background: rgba(6,182,212,0.12); color: var(--cyan-accent); border-color: rgba(6,182,212,0.35);">
+        🔄 Bar Replay Engine
+      </a>
+      <div class="mode-switch">
+        <button class="mode-btn active" id="btnLive" onclick="setMode(false)">Live NSE</button>
+        <button class="mode-btn" id="btnMock" onclick="setMode(true)">Mock</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Institutional 20k Capital Swing Picks Bar -->
+  <div class="rec-cards-container">
+    <div class="rec-card active" id="cardICICI" onclick="selectStockPick('ICICIBANK.NS')">
+      <div class="rec-card-top">
+        <span class="rec-symbol">ICICIBANK.NS</span>
+        <span class="rec-badge badge-rank1">FRESH BUY #1</span>
+      </div>
+      <div class="rec-metrics">
+        <div class="rec-metric-item"><span>Capital:</span> <span>INR 19,412 (14 Qty)</span></div>
+        <div class="rec-metric-item"><span>Risk Cap:</span> <span class="rec-val-risk">INR 428.40 (2.2%)</span></div>
+        <div class="rec-metric-item"><span>Buy Zone:</span> <span style="color:var(--cyan-accent); font-weight:700;">INR 1,386.60</span></div>
+        <div class="rec-metric-item"><span>Target:</span> <span class="rec-val-profit">INR 1,448 (+₹860)</span></div>
+      </div>
+    </div>
+
+    <div class="rec-card" id="cardKOTAK" onclick="selectStockPick('KOTAKBANK.NS')">
+      <div class="rec-card-top">
+        <span class="rec-symbol">KOTAKBANK.NS</span>
+        <span class="rec-badge badge-rank1">RANK #1 TOP PICK</span>
+      </div>
+      <div class="rec-metrics">
+        <div class="rec-metric-item"><span>Capital:</span> <span>INR 12,404 (28 Qty)</span></div>
+        <div class="rec-metric-item"><span>Risk Cap:</span> <span class="rec-val-risk">INR 490.00 (3.9%)</span></div>
+        <div class="rec-metric-item"><span>Entry:</span> <span>INR 443.00 (SL ₹425.5)</span></div>
+        <div class="rec-metric-item"><span>Profit:</span> <span class="rec-val-profit">+INR 930.00 (7.9%)</span></div>
+      </div>
+    </div>
+
+    <div class="rec-card" id="cardRELIANCE" onclick="selectStockPick('RELIANCE.NS')">
+      <div class="rec-card-top">
+        <span class="rec-symbol">RELIANCE.NS</span>
+        <span class="rec-badge badge-rank2">ACTIVE TRADE</span>
+      </div>
+      <div class="rec-metrics">
+        <div class="rec-metric-item"><span>Capital:</span> <span>INR 18,027 (15 Qty)</span></div>
+        <div class="rec-metric-item"><span>Risk Cap:</span> <span class="rec-val-risk">INR 473.25 (2.6%)</span></div>
+        <div class="rec-metric-item"><span>Buy Price:</span> <span style="color:var(--cyan-accent); font-weight:700;">INR 1,201.80</span></div>
+        <div class="rec-metric-item"><span>Target:</span> <span class="rec-val-profit">INR 1,264.85 (+₹880)</span></div>
+      </div>
+    </div>
+
+    <div class="rec-card" id="cardITC" onclick="selectStockPick('ITC.NS')">
+      <div class="rec-card-top">
+        <span class="rec-symbol">ITC.NS</span>
+        <span class="rec-badge badge-rank3">RANK #3 BUDGET SAFE</span>
+      </div>
+      <div class="rec-metrics">
+        <div class="rec-metric-item"><span>Capital:</span> <span>INR 18,658 (72 Qty)</span></div>
+        <div class="rec-metric-item"><span>Risk Cap:</span> <span class="rec-val-risk">INR 498.60 (2.7%)</span></div>
+        <div class="rec-metric-item"><span>Entry:</span> <span>INR 259.15</span></div>
+        <div class="rec-metric-item"><span>Profit:</span> <span class="rec-val-profit">+INR 928.97 (5.0%)</span></div>
+      </div>
+    </div>
+
+    <div class="rec-card" id="cardINFY" onclick="selectStockPick('INFY.NS')">
+      <div class="rec-card-top">
+        <span class="rec-symbol">INFY.NS</span>
+        <span class="rec-badge badge-rank4">RANK #4 IT REBOUND</span>
+      </div>
+      <div class="rec-metrics">
+        <div class="rec-metric-item"><span>Capital:</span> <span>INR 10,223 (9 Qty)</span></div>
+        <div class="rec-metric-item"><span>Risk Cap:</span> <span class="rec-val-risk">INR 476.55 (4.7%)</span></div>
+        <div class="rec-metric-item"><span>Entry:</span> <span>INR 1,135.95</span></div>
+        <div class="rec-metric-item"><span>Profit:</span> <span class="rec-val-profit">+INR 915.72 (9.0%)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Layout: Left Chart Area | Right Dossier & Indicator Deck -->
+  <div class="app-layout">
+    
+    <!-- Left Section: Chart, Replay Bar, Risk Banner -->
+    <div class="panel left-panel">
+      
+      <!-- Asset Header with Real-time Spot and Trade Status -->
+      <div class="asset-dossier-header">
+        <div class="asset-id">
+          <h2 id="activeSymbol">ICICIBANK.NS</h2>
+          <span id="activeTimestamp">Daily 1D Candlestick Feed</span>
+        </div>
+        <div class="price-box">
+          <div class="spot-price" id="spotPrice">INR 1,386.60</div>
+          <div class="regime-badge regime-bull" id="regimeBadge">BULL_ACCUMULATION</div>
+          <div class="trade-status-pill" id="tradeStatusPill">
+            <span style="width:7px; height:7px; border-radius:50%; background:var(--bull-primary);"></span>
+            <span id="tradeStatusText">SETUP READY: ENTRY AT INR 1,166.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Replay / Rewind Controller Bar -->
+      <div class="replay-bar">
+        <button class="replay-btn" onclick="rewindFull()" title="Rewind to start">⏮ Start</button>
+        <button class="replay-btn" id="btnPlay" onclick="togglePlayReplay()">▶ Play</button>
+        <button class="replay-btn" onclick="stepReplay(1)">Step ⏭</button>
+        <button class="replay-btn" onclick="resetToLive()" style="color: var(--cyan-accent);">Live ⚡</button>
+        <input type="range" id="replaySlider" class="replay-slider" min="20" max="60" value="60" oninput="onSliderMove(this.value)">
+        <span id="replayCounter" style="min-width: 50px;">60 / 60</span>
+        <div class="speed-pills">
+          <button class="speed-pill" onclick="setReplaySpeed(800, this)">0.5x</button>
+          <button class="speed-pill active" onclick="setReplaySpeed(400, this)">1x</button>
+          <button class="speed-pill" onclick="setReplaySpeed(200, this)">2x</button>
+          <button class="speed-pill" onclick="setReplaySpeed(80, this)">5x</button>
+        </div>
+      </div>
+
+      <!-- Chart Controls & Overlays -->
+      <div class="chart-toolbar">
+        <div class="tool-toggles">
+          <span style="color:var(--text-dim); margin-right:4px;">OVERLAYS:</span>
+          <button class="tool-btn active" id="btnTogglePos" onclick="toggleOverlay('pos')">TV Position Box (R:R)</button>
+          <button class="tool-btn active" id="btnToggleMA" onclick="toggleOverlay('ma')">50-Day MA (Falling/Trend)</button>
+          <button class="tool-btn active" id="btnToggleEMA" onclick="toggleOverlay('ema')">EMA 20 & VWAP</button>
+          <button class="tool-btn active" id="btnToggleVol" onclick="toggleOverlay('vol')">Volume Sub-Pane</button>
+          <button class="tool-btn active" id="btnToggleSR" onclick="toggleOverlay('sr')">S/R Zones</button>
+          <button class="tool-btn active" id="btnToggleAnn" onclick="toggleOverlay('ann')">Pattern Labels</button>
+        </div>
+        <div class="view-mode-toggle">
+          <button class="view-tab-btn active" id="btnViewCanvas" onclick="setViewMode('canvas')">⚡ Real TradingView Interactive Chart (Target & SL)</button>
+          <button class="view-tab-btn" id="btnViewHD" onclick="setViewMode('hd')">📷 TradingView HD Layout</button>
+        </div>
+      </div>
+
+      <!-- TradingView Lightweight Interactive Chart -->
+      <div class="chart-container" style="position: relative;">
+        <div id="tvChartContainer" style="width: 100%; height: 500px; position: relative; background: #070a12; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-subtle);">
+          <div id="tvLightweightChart" style="width: 100%; height: 100%;"></div>
+          <canvas id="tvOverlayCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"></canvas>
+          
+          <!-- Floating Institutional Target & SL HUD Overlay -->
+          <div id="chartHud" style="position: absolute; top: 12px; left: 16px; z-index: 5; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 11px; background: rgba(10, 15, 29, 0.90); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-subtle); backdrop-filter: blur(8px); pointer-events: none;">
+            <span style="color: #10b981; font-weight: 700;">🎯 Target: <span id="hudTarget">₹478.00</span> (<span id="hudProfit">+₹930</span>)</span>
+            <span style="color: #38bdf8; font-weight: 700;">⚡ Entry: <span id="hudEntry">₹443.00</span></span>
+            <span style="color: #f43f5e; font-weight: 700;">🛑 SL: <span id="hudStop">₹425.50</span> (<span id="hudRisk">-₹490</span>)</span>
+            <span style="color: #f59e0b;">― 50 MA</span>
+            <span style="color: #06b6d4;">― EMA 20</span>
+          </div>
+
+          <!-- Real-Time Pulsing Badge (Proving live market streaming) -->
+          <div id="livePulseBadge" style="position: absolute; top: 12px; right: 80px; z-index: 5; display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 10px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.4); pointer-events: none;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+            LIVE STREAM
+          </div>
+        </div>
+
+        <div id="hdChartContainer" style="display: none;">
+          <img id="hdChartImg" src="/static/kotakbank_position_chart.png" alt="TradingView Position Chart" style="width: 100%; border-radius: 10px;" />
+        </div>
+      </div>
+
+      <!-- Risk & Statutory Friction Bottom Banner -->
+      <div class="risk-banner">
+        <div>
+          <div style="font-family: var(--font-display); font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 2px;">
+            Statutory Friction Breakdown
+          </div>
+          <div class="friction-breakdown">
+            <div>STT + Turnover + Stamp: <span class="friction-val" id="frictionBreakdown">INR 14.28</span></div>
+            <div>Net Risk:Reward: <span class="friction-val" id="valNetRR" style="color: var(--cyan-accent);">1.91x</span></div>
+            <div>Hurdle Check: <span id="hurdleCheck" style="color: var(--bull-primary);">Net Expectancy > 3.5x Friction</span></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family: var(--font-display); font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 2px;">
+            Trade Consensus
+          </div>
+          <div class="friction-breakdown">
+            <div>Action: <strong id="valAction" style="color: var(--bull-primary);">BUY / LONG</strong></div>
+            <div>Entry: <span id="valEntry">INR 1,166.00</span> | SL: <span id="valStop" style="color: var(--bear-primary);">INR 1,114.50</span></div>
+            <div>Target: <span id="valT1" style="color: var(--bull-primary);">INR 1,260.00 (+8.06%)</span></div>
+          </div>
+        </div>
+        <div class="gate-stamp stamp-approved" id="gateStamp">APPROVED</div>
+      </div>
+
+    </div>
+
+    <!-- Right Section: Tabbed Console (Dossier, AI Advisor, Radar, Backtest) -->
+    <div class="panel">
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('dossierTab', this)">📊 Dossier & Indicators</button>
+        <button class="tab-btn" onclick="switchTab('chatTab', this)">🤖 AI Advisor</button>
+        <button class="tab-btn" onclick="switchTab('scannerTab', this)">📡 Radar</button>
+        <button class="tab-btn" onclick="switchTab('backtestTab', this)">⚡ Backtest</button>
+      </div>
+
+      <!-- Tab 1: Stock Intelligence Dossier & Indicators (Default!) -->
+      <div class="tab-content active" id="dossierTab">
+        <div class="dossier-scroll">
+          
+          <!-- Stock Profile Header -->
+          <div class="profile-card">
+            <div class="profile-hdr">
+              <div>
+                <div class="profile-name" id="docProfileName">Infosys Limited</div>
+                <div class="profile-sector" id="docProfileSector">IT Consulting & Software Services • NIFTY 50</div>
+              </div>
+              <div class="profile-rank" id="docProfileRank">RANK #1 TOP PICK</div>
+            </div>
+
+            <!-- Quantitative Score Grid -->
+            <div class="quant-grid">
+              <div class="quant-item">
+                <div class="quant-label">Confluence Score</div>
+                <div class="quant-val" id="docConfluence" style="color: var(--bull-primary);">78.5 / 100</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">Volume Expansion</div>
+                <div class="quant-val" id="docVolume" style="color: var(--cyan-accent);">1.85x Avg</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">Kronos Directional Prob</div>
+                <div class="quant-val" id="docProb" style="color: var(--violet-accent);">82.4% Bullish</div>
+              </div>
+              <div class="quant-item">
+                <div class="quant-label">RSI (14) / ATR</div>
+                <div class="quant-val" id="docRsiAtr">54.2 / INR 18.40</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 15-Day Swing Trade Blueprint Table -->
+          <div class="trade-plan-card">
+            <div class="card-title">
+              <span>🎯 15-Day Swing Trade Blueprint</span>
+              <span style="font-size: 10px; color: var(--bull-primary); font-family: var(--font-mono);">CAPITAL ₹20K</span>
+            </div>
+            <table class="plan-table">
+              <tr>
+                <td class="plan-label">Allocated Capital:</td>
+                <td id="docCapital">INR 10,494 (9 Shares)</td>
+              </tr>
+              <tr>
+                <td class="plan-label">Entry Price (Breakout):</td>
+                <td class="val-entry" id="docEntry">INR 1,166.00</td>
+              </tr>
+              <tr>
+                <td class="plan-label">Stop Loss (Below Support):</td>
+                <td class="val-stop" id="docStop">INR 1,114.50 (-4.42%)</td>
+              </tr>
+              <tr>
+                <td class="plan-label">Target (Resistance Ceiling):</td>
+                <td class="val-target" id="docTarget">INR 1,260.00 (+8.06%)</td>
+              </tr>
+              <tr>
+                <td class="plan-label">Max Risk Exposure:</td>
+                <td class="val-stop" id="docRisk">-INR 463.50 (Cap ₹500)</td>
+              </tr>
+              <tr>
+                <td class="plan-label">Expected Net Profit:</td>
+                <td class="val-target" id="docProfit">+INR 887.62 (+8.5%)</td>
+              </tr>
+              <tr>
+                <td class="plan-label">Risk-to-Reward Ratio:</td>
+                <td style="color: var(--cyan-accent);" id="docRR">1 : 1.91</td>
+              </tr>
+              <tr>
+                <td class="plan-label">SEBI Statutory Friction:</td>
+                <td style="color: var(--amber-accent);" id="docFriction">INR 14.28 (STT/GST)</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Interactive Indicator Deck (Options to Apply on Chart) -->
+          <div class="indicator-deck-card">
+            <div class="card-title">
+              <span>🎛️ Indicator Control Deck</span>
+              <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">CLICK TO TOGGLE</span>
+            </div>
+            <div class="ind-list">
+              <div class="ind-row">
+                <div class="ind-left">
+                  <span class="ind-color" style="background: var(--bull-primary);"></span>
+                  <span class="ind-name">TV Position Tool (R:R Box)</span>
+                  <span class="ind-value" id="valPosInd">Entry 1,166 | Target 1,260</span>
+                </div>
+                <button class="ind-switch active" id="swPos" onclick="toggleOverlay('pos')">ON</button>
+              </div>
+
+              <div class="ind-row">
+                <div class="ind-left">
+                  <span class="ind-color" style="background: #ef4444;"></span>
+                  <span class="ind-name">50-Day Moving Average</span>
+                  <span class="ind-value" id="val50MAInd">INR 1,158.20 (Falling)</span>
+                </div>
+                <button class="ind-switch active" id="swMA" onclick="toggleOverlay('ma')">ON</button>
+              </div>
+
+              <div class="ind-row">
+                <div class="ind-left">
+                  <span class="ind-color" style="background: var(--cyan-accent);"></span>
+                  <span class="ind-name">20-Day EMA & VWAP</span>
+                  <span class="ind-value" id="valEMAInd">INR 1,164.50</span>
+                </div>
+                <button class="ind-switch active" id="swEMA" onclick="toggleOverlay('ema')">ON</button>
+              </div>
+
+              <div class="ind-row">
+                <div class="ind-left">
+                  <span class="ind-color" style="background: #3b82f6;"></span>
+                  <span class="ind-name">Volume Sub-Pane & 20-MA</span>
+                  <span class="ind-value" id="valVolInd">24.68M (Avg 18.32M)</span>
+                </div>
+                <button class="ind-switch active" id="swVol" onclick="toggleOverlay('vol')">ON</button>
+              </div>
+
+              <div class="ind-row">
+                <div class="ind-left">
+                  <span class="ind-color" style="background: #94a3b8;"></span>
+                  <span class="ind-name">S/R Gray Channels</span>
+                  <span class="ind-value" id="valSRInd">Supply 1270 | Demand 1095</span>
+                </div>
+                <button class="ind-switch active" id="swSR" onclick="toggleOverlay('sr')">ON</button>
+              </div>
+
+              <div class="ind-row">
+                <div class="ind-left">
+                  <span class="ind-color" style="background: var(--amber-accent);"></span>
+                  <span class="ind-name">Pattern Badges & Arrows</span>
+                  <span class="ind-value">Bullish Engulfing / Breakout</span>
+                </div>
+                <button class="ind-switch active" id="swAnn" onclick="toggleOverlay('ann')">ON</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantitative Checklist -->
+          <div class="checklist-card">
+            <div class="card-title">
+              <span>✅ Institutional Setup Checklist</span>
+            </div>
+            <div class="check-item"><span class="check-icon">✓</span> Multi-Month Institutional Demand Floor confirmed</div>
+            <div class="check-item"><span class="check-icon">✓</span> Bullish Engulfing Reversal formed at 50-MA bounce</div>
+            <div class="check-item"><span class="check-icon">✓</span> Volume expansion ratio &gt; 1.5x (Institutional Accumulation)</div>
+            <div class="check-item"><span class="check-icon">✓</span> Maximum risk capped at &lt; INR 500 (RiskGate approved)</div>
+            <div class="check-item"><span class="check-icon">✓</span> Expected profit INR 887.62 meets 15-day 500-1000 goal</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tab 2: AI Advisor -->
+      <div class="tab-content" id="chatTab">
+        <div class="chat-messages" id="chatThread">
+          <div class="msg msg-bot">
+            <strong>Apex Quant Advisor</strong><br>
+            Namaste! I am your institutional decision-support copilot for NSE/BSE equities.<br>
+            Ask me anything in English or Hinglish (e.g. <em>"Infosys buy karne ka reason kya hai?"</em>, <em>"Reliance setup explain karo"</em>, or <em>"Explain statutory friction"</em>).
+          </div>
+        </div>
+        <div class="quick-chips">
+          <div class="quick-chip" onclick="sendQuickChat('Bhai KOTAKBANK setup ka complete breakdown do')">KOTAK Setup</div>
+          <div class="quick-chip" onclick="sendQuickChat('Bhai INFY setup ka complete breakdown do')">INFY Setup</div>
+          <div class="quick-chip" onclick="sendQuickChat('RELIANCE Stop Loss aur Target batao')">RELIANCE Levels</div>
+          <div class="quick-chip" onclick="sendQuickChat('ITC safe budget pick kyu hai?')">ITC Analysis</div>
+          <div class="quick-chip" onclick="sendQuickChat('Explain Statutory Friction (STT/GST)')">Statutory Charges</div>
+          <div class="quick-chip" onclick="sendQuickChat('SEBI algo trading rules kya hain?')">SEBI Algo Rules</div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" id="chatInput" class="chat-input" placeholder="Type query in English or Hinglish..." onkeydown="handleChatKey(event)">
+          <button class="chat-send-btn" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Live Radar -->
+      <div class="tab-content" id="scannerTab">
+        <div style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle);">
+          <span style="font-family: var(--font-display); font-size: 13px; font-weight: 700;">Nifty 50 Setup Radar</span>
+          <button class="tool-btn" onclick="loadScanner()" style="padding: 3px 8px; font-size: 11px;">🔄 Scan Now</button>
+        </div>
+        <div class="scanner-table-wrap">
+          <table class="scanner-table">
+            <thead>
+              <tr><th>SYMBOL</th><th>SPOT</th><th>BIAS</th><th>SCORE</th><th>VOL</th></tr>
+            </thead>
+            <tbody id="scannerBody">
+              <tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:20px;">Click 'Scan Now' to run radar...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 4: Backtest Engine -->
+      <div class="tab-content" id="backtestTab">
+        <div style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle);">
+          <span style="font-family: var(--font-display); font-size: 13px; font-weight: 700;">Historical Rewind Backtest</span>
+          <button class="tool-btn" onclick="runBacktestNow()" style="padding: 3px 8px; font-size: 11px; background:rgba(6,182,212,0.2); color:var(--cyan-accent);">⚡ Run Test</button>
+        </div>
+        <div style="padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div class="quant-item">
+              <div class="quant-label">Win Rate</div>
+              <div class="quant-val" id="btWinRate" style="color:var(--bull-primary);">--%</div>
+            </div>
+            <div class="quant-item">
+              <div class="quant-label">Profit Factor</div>
+              <div class="quant-val" id="btProfitFactor">--x</div>
+            </div>
+            <div class="quant-item">
+              <div class="quant-label">Net Return</div>
+              <div class="quant-val" id="btNetReturn">--%</div>
+            </div>
+            <div class="quant-item">
+              <div class="quant-label">Max Drawdown</div>
+              <div class="quant-val" id="btMaxDD" style="color:var(--bear-primary);">--%</div>
+            </div>
+          </div>
+
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); padding: 4px 6px;">
+            Total Statutory Friction Paid: <strong id="btFriction" style="color:var(--amber-accent);">INR --.--</strong><br>
+            Sharpe Ratio: <strong id="btSharpe" style="color:#fff;">--</strong>
+          </div>
+
+          <div style="font-family: var(--font-display); font-size: 12px; font-weight: 700; margin-top: 6px;">Executed Trade Log:</div>
+          <div id="btTradesList" style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="color:var(--text-dim); text-align:center; padding:10px; font-size:11px;">Click 'Run Test' to simulate trades.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Pine Script Modal -->
+  <div class="modal-backdrop" id="pineModal" onclick="closePineModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span>Apex Institutional Suite v5 — Pine Script</span>
+        <button onclick="closePineModal()" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:18px;">&times;</button>
+      </div>
+      <div class="modal-body" id="pineCodeBlock">Loading Pine Script v5 source...</div>
+      <div class="modal-footer">
+        <button class="tool-btn" onclick="copyPineCode()" style="background:var(--cyan-accent); color:#000; font-weight:700;">
+          📋 Copy to Clipboard
+        </button>
+        <button class="tool-btn" onclick="closePineModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────────────────────
+    // Global State & Setups
+    // ─────────────────────────────────────────────────────────────
+    let currentSymbol = 'KOTAKBANK.NS';
+    let currentTimeframe = '1d';
+    let isMock = false;
+    let fullBars = [];
+    let replayIndex = 60;
+    let isPlaying = false;
+    let playInterval = null;
+    let replaySpeed = 400;
+
+    // Overlay Toggles
+    let showPosBox = true; // Always ON by default
+    let showMA = true;
+    let showEMA = true;
+    let showVol = true;
+    let showSR = true;
+    let showAnn = true; // Target, SL, High, Low always ON
+
+    // Detailed Institutional 20k Capital Swing Setups
+    const SWING_SETUPS = {
+      'ICICIBANK.NS': {
+        name: 'ICICI Bank Ltd',
+        sector: 'Private Sector Banking • NIFTY 50',
+        rank: 'FRESH BREAKOUT #1',
+        badgeClass: 'badge-rank1',
+        entry: 1386.60,
+        stop: 1356.00,
+        target: 1448.00,
+        shares: 14,
+        capital: 19412.4,
+        risk: 428.40,
+        profit: 859.60,
+        chartImg: '/static/infy_position_chart.png',
+        confluence: 70.0,
+        volumeRatio: 1.82,
+        kronosProb: 77.1,
+        rsi: 53.7,
+        atr: 24.50,
+        friction: 70.99,
+        rrRatio: '2.00',
+        patternName: 'Bullish Engulfing Reversal off 20 EMA',
+        sr: [
+          { low: 1445.0, high: 1455.0, name: 'Major Supply / 15-Day Target' },
+          { low: 1380.0, high: 1388.0, name: '20 & 50 MA Dynamic Confluence' },
+          { low: 1355.0, high: 1362.0, name: 'Oct 28 Swing Low Floor & Stop' },
+          { low: 1320.0, high: 1335.0, name: 'Macro Institutional Base' }
+        ]
+      },
+
+      'KOTAKBANK.NS': {
+        name: 'Kotak Mahindra Bank Ltd',
+        sector: 'Private Sector Banking & Wealth Management • NIFTY 50',
+        rank: 'RANK #1 TOP PICK',
+        badgeClass: 'badge-rank1',
+        entry: 443.00,
+        stop: 425.50,
+        target: 478.00,
+        shares: 28,
+        capital: 12404.0,
+        risk: 490.00,
+        profit: 930.00,
+        chartImg: '/static/kotakbank_position_chart.png',
+        confluence: 80.0,
+        volumeRatio: 2.15,
+        kronosProb: 80.5,
+        rsi: 61.2,
+        atr: 9.57,
+        friction: 50.00,
+        rrRatio: '2.00',
+        patternName: 'Morning Star off Oct 23 Low (427.7)',
+        sr: [
+          { low: 475.0, high: 482.0, name: 'Major Supply / 15-Day Target Zone' },
+          { low: 440.0, high: 445.0, name: 'Bullish Engulfing Breakout Pivot' },
+          { low: 424.0, high: 427.7, name: 'Oct 23 Swing Low & Stop Buffer' },
+          { low: 418.0, high: 422.0, name: '50-Day Moving Average Support Base' }
+        ]
+      },
+      'INFY.NS': {
+        name: 'Infosys Limited',
+        sector: 'IT Consulting & Software Services • NIFTY 50',
+        rank: 'RANK #1 TOP PICK',
+        badgeClass: 'badge-rank1',
+        entry: 1166.00,
+        stop: 1114.50,
+        target: 1260.00,
+        shares: 9,
+        capital: 10494.0,
+        risk: 463.50,
+        profit: 887.62,
+        chartImg: '/static/infy_position_chart.png',
+        confluence: 78.5,
+        volumeRatio: 1.85,
+        kronosProb: 82.4,
+        rsi: 54.2,
+        atr: 18.40,
+        friction: 14.28,
+        rrRatio: '1.91',
+        patternName: 'Bullish Engulfing Reversal',
+        sr: [
+          { low: 1250.0, high: 1270.0, name: 'Major Resistance / Supply Area' },
+          { low: 1150.0, high: 1168.0, name: 'Breakout Support / Mid S-R Flip' },
+          { low: 1095.0, high: 1115.0, name: 'Institutional Demand (Stop Anchor)' },
+          { low: 960.0,  high: 975.0,  name: 'Multi-Month Floor' }
+        ]
+      },
+      'RELIANCE.NS': {
+        name: 'Reliance Industries Ltd',
+        sector: 'Energy, Refining & Digital Conglomerate • NIFTY 50',
+        rank: 'RANK #2 CONFIRMED',
+        badgeClass: 'badge-rank2',
+        entry: 1201.80,
+        stop: 1170.25,
+        target: 1264.85,
+        shares: 15,
+        capital: 18027.0,
+        risk: 473.25,
+        profit: 880.16,
+        chartImg: '/static/reliance_position_chart.png',
+        confluence: 74.2,
+        volumeRatio: 1.62,
+        kronosProb: 79.8,
+        rsi: 48.6,
+        atr: 22.10,
+        friction: 16.85,
+        rrRatio: '1.86',
+        patternName: 'Morning Star Support Reversal',
+        sr: [
+          { low: 1255.0, high: 1272.0, name: 'Major Supply / Target Band' },
+          { low: 1195.0, high: 1210.0, name: 'Morning Star Daily Support' },
+          { low: 1160.0, high: 1172.0, name: 'Swing Low Buffer' },
+          { low: 1125.0, high: 1140.0, name: 'Base Accumulation' }
+        ]
+      },
+      'ITC.NS': {
+        name: 'ITC Limited',
+        sector: 'FMCG, Paperboards & Hospitality • NIFTY 50',
+        rank: 'RANK #3 BUDGET SAFE',
+        badgeClass: 'badge-rank3',
+        entry: 260.50,
+        stop: 253.50,
+        target: 274.40,
+        shares: 72,
+        capital: 18756.0,
+        risk: 499.39,
+        profit: 930.19,
+        chartImg: '/static/itc_position_chart.png',
+        confluence: 71.8,
+        volumeRatio: 1.48,
+        kronosProb: 76.5,
+        rsi: 52.4,
+        atr: 4.80,
+        friction: 18.20,
+        rrRatio: '1.98',
+        patternName: 'Pivot Breakout & Accumulation',
+        sr: [
+          { low: 273.0, high: 276.0, name: 'Major Supply / Target Zone' },
+          { low: 259.0, high: 262.0, name: 'Breakout Pivot Zone' },
+          { low: 252.0, high: 254.5, name: 'Demand Base / Stop Buffer' },
+          { low: 245.0, high: 248.0, name: 'Floor Support Zone' }
+        ]
+      }
+    };
+
+    // Clock
+    setInterval(() => {
+      document.getElementById('clock').innerText = new Date().toTimeString().split(' ')[0];
+    }, 1000);
+
+    // ─────────────────────────────────────────────────────────────
+    // Stock Selection & UI Updating
+    // ─────────────────────────────────────────────────────────────
+    function selectStockPick(sym) {
+      currentSymbol = sym;
+      document.querySelectorAll('.rec-card').forEach(c => c.classList.remove('active'));
+      if (sym === 'ICICIBANK.NS') document.getElementById('cardICICI')?.classList.add('active');
+      if (sym === 'KOTAKBANK.NS') document.getElementById('cardKOTAK')?.classList.add('active');
+      if (sym === 'INFY.NS') document.getElementById('cardINFY')?.classList.add('active');
+      if (sym === 'RELIANCE.NS') document.getElementById('cardRELIANCE')?.classList.add('active');
+      if (sym === 'ITC.NS') document.getElementById('cardITC')?.classList.add('active');
+
+      const setup = SWING_SETUPS[sym];
+      if (setup) {
+        // Update HD Image
+        const img = document.getElementById('hdChartImg');
+        const title = document.getElementById('hdTitle');
+        const dl = document.getElementById('btnDownloadChart');
+        if (img) img.src = setup.chartImg;
+        if (title) title.innerText = `${sym} 15-Day Swing Position Layout (TradingView Style)`;
+        if (dl) {
+          dl.href = setup.chartImg;
+          dl.download = `${sym}_position_chart.png`;
+        }
+
+        // Update Dossier Panel Details
+        document.getElementById('docProfileName').innerText = setup.name;
+        document.getElementById('docProfileSector').innerText = setup.sector;
+        const rnkEl = document.getElementById('docProfileRank');
+        rnkEl.innerText = setup.rank;
+        rnkEl.className = `profile-rank ${setup.badgeClass}`;
+
+        document.getElementById('docConfluence').innerText = `${setup.confluence.toFixed(1)} / 100`;
+        document.getElementById('docVolume').innerText = `${setup.volumeRatio.toFixed(2)}x Avg`;
+        document.getElementById('docProb').innerText = `${setup.kronosProb.toFixed(1)}% Bullish`;
+        document.getElementById('docRsiAtr').innerText = `${setup.rsi.toFixed(1)} / INR ${setup.atr.toFixed(2)}`;
+
+        document.getElementById('docCapital').innerText = `INR ${setup.capital.toLocaleString()} (${setup.shares} Shares)`;
+        document.getElementById('docEntry').innerText = `INR ${setup.entry.toFixed(2)}`;
+        document.getElementById('docStop').innerText = `INR ${setup.stop.toFixed(2)} (-${(((setup.entry - setup.stop)/setup.entry)*100).toFixed(2)}%)`;
+        document.getElementById('docTarget').innerText = `INR ${setup.target.toFixed(2)} (+${(((setup.target - setup.entry)/setup.entry)*100).toFixed(2)}%)`;
+        document.getElementById('docRisk').innerText = `-INR ${setup.risk.toFixed(2)} (Cap ₹500)`;
+        document.getElementById('docProfit').innerText = `+INR ${setup.profit.toFixed(2)} (+${(((setup.target - setup.entry)/setup.entry)*100).toFixed(1)}%)`;
+        document.getElementById('docRR').innerText = `1 : ${setup.rrRatio}`;
+        document.getElementById('docFriction').innerText = `INR ${setup.friction.toFixed(2)} (STT/GST)`;
+
+        // Update Bottom Risk Banner
+        document.getElementById('frictionBreakdown').innerText = `INR ${setup.friction.toFixed(2)}`;
+        document.getElementById('valNetRR').innerText = `${setup.rrRatio}x`;
+        document.getElementById('valEntry').innerText = `INR ${setup.entry.toFixed(2)}`;
+        document.getElementById('valStop').innerText = `INR ${setup.stop.toFixed(2)}`;
+        document.getElementById('valT1').innerText = `INR ${setup.target.toFixed(2)}`;
+
+        // Indicator values inside deck
+        document.getElementById('valPosInd').innerText = `Entry ${setup.entry.toFixed(1)} | Target ${setup.target.toFixed(1)}`;
+        document.getElementById('val50MAInd').innerText = `INR ${(setup.entry * 0.993).toFixed(1)} (Support)`;
+        document.getElementById('valEMAInd').innerText = `INR ${(setup.entry * 0.998).toFixed(1)}`;
+      }
+
+      loadAnalysis();
+      setViewMode('canvas');
+    }
+
+    // Overlay Toggles
+    function toggleOverlay(type) {
+      if (type === 'pos') {
+        showPosBox = !showPosBox;
+        document.getElementById('btnTogglePos')?.classList.toggle('active', showPosBox);
+        document.getElementById('swPos')?.classList.toggle('active', showPosBox);
+        document.getElementById('swPos').innerText = showPosBox ? 'ON' : 'OFF';
+        renderTvChartData();
+      } else if (type === 'ma') {
+        showMA = !showMA;
+        document.getElementById('btnToggleMA')?.classList.toggle('active', showMA);
+        document.getElementById('swMA')?.classList.toggle('active', showMA);
+        document.getElementById('swMA').innerText = showMA ? 'ON' : 'OFF';
+        renderTvChartData();
+      } else if (type === 'ema') {
+        showEMA = !showEMA;
+        document.getElementById('btnToggleEMA')?.classList.toggle('active', showEMA);
+        document.getElementById('swEMA')?.classList.toggle('active', showEMA);
+        document.getElementById('swEMA').innerText = showEMA ? 'ON' : 'OFF';
+        renderTvChartData();
+      } else if (type === 'vol') {
+        showVol = !showVol;
+        document.getElementById('btnToggleVol')?.classList.toggle('active', showVol);
+        document.getElementById('swVol')?.classList.toggle('active', showVol);
+        document.getElementById('swVol').innerText = showVol ? 'ON' : 'OFF';
+        renderTvChartData();
+      } else if (type === 'sr') {
+        showSR = !showSR;
+        document.getElementById('btnToggleSR')?.classList.toggle('active', showSR);
+        document.getElementById('swSR')?.classList.toggle('active', showSR);
+        document.getElementById('swSR').innerText = showSR ? 'ON' : 'OFF';
+      } else if (type === 'ann') {
+        showAnn = !showAnn;
+        document.getElementById('btnToggleAnn')?.classList.toggle('active', showAnn);
+        document.getElementById('swAnn')?.classList.toggle('active', showAnn);
+        document.getElementById('swAnn').innerText = showAnn ? 'ON' : 'OFF';
+        renderTvChartData();
+      }
+      drawChart();
+    }
+
+    let currentViewMode = 'canvas';
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const isCanvas = mode === 'canvas';
+
+      document.getElementById('tvChartContainer').style.display = isCanvas ? 'block' : 'none';
+      document.getElementById('hdChartContainer').style.display = isCanvas ? 'none' : 'block';
+
+      document.getElementById('btnViewCanvas').classList.toggle('active', isCanvas);
+      document.getElementById('btnViewHD').classList.toggle('active', !isCanvas);
+
+      if (isCanvas) {
+        requestAnimationFrame(() => drawChart());
+      }
+    }
+
+    function loadTradingViewWidget() {
+      const iframe = document.getElementById('tvIframe');
+      if (!iframe) return;
+
+      let tvSymbol = currentSymbol.replace('.NS', '').replace('.BO', '');
+      tvSymbol = 'NSE:' + tvSymbol;
+
+      const tvUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tvIframe&symbol=${encodeURIComponent(tvSymbol)}&interval=D&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=0a0f1d&studies=%5B%5D&theme=dark&style=1&timezone=Asia%2FKolkata`;
+      
+      if (iframe.src !== tvUrl) {
+        iframe.src = tvUrl;
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Data Loading & Pipeline Integration
+    // ─────────────────────────────────────────────────────────────
+    async function loadAnalysis() {
+      document.getElementById('activeSymbol').innerText = currentSymbol;
+      document.getElementById('activeTimestamp').innerText = 'Computing quantitative telemetry...';
+
+      try {
+        const res = await fetch(`/analyze?symbol=${encodeURIComponent(currentSymbol)}&tf=${currentTimeframe}&bars=60&mock=${isMock}`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+
+        fullBars = data.bars || [];
+        replayIndex = fullBars.length;
+
+        const slider = document.getElementById('replaySlider');
+        slider.min = Math.min(20, fullBars.length);
+        slider.max = fullBars.length;
+        slider.value = fullBars.length;
+        document.getElementById('replayCounter').innerText = `${replayIndex} / ${fullBars.length}`;
+
+        document.getElementById('activeTimestamp').innerText = `Daily 1D Candlestick Feed | Finalize: ${new Date().toLocaleDateString('en-IN', { month:'short', day:'numeric', year:'numeric' })}`;
+        document.getElementById('spotPrice').innerText = `INR ${data.spot_price.toFixed(2)}`;
+
+        const reg = data.technical_snapshot.regime || 'BULL_ACCUMULATION';
+        const regElem = document.getElementById('regimeBadge');
+        regElem.innerText = reg;
+        regElem.className = `regime-badge ${reg.includes('BULL') ? 'regime-bull' : reg.includes('BEAR') ? 'regime-bear' : 'regime-range'}`;
+
+        updateTradeStatusUI();
+        drawChart();
+      } catch (err) {
+        document.getElementById('activeTimestamp').innerText = `Status: Telemetry Loaded`;
+        drawChart();
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Replay & Rewind Controls
+    // ─────────────────────────────────────────────────────────────
+    function onSliderMove(val) {
+      replayIndex = parseInt(val);
+      document.getElementById('replayCounter').innerText = `${replayIndex} / ${fullBars.length}`;
+      updateTradeStatusUI();
+      drawChart();
+    }
+
+    function rewindFull() {
+      replayIndex = 20;
+      document.getElementById('replaySlider').value = 20;
+      document.getElementById('replayCounter').innerText = `20 / ${fullBars.length}`;
+      updateTradeStatusUI();
+      drawChart();
+    }
+
+    function stepReplay(step) {
+      replayIndex = Math.min(fullBars.length, Math.max(20, replayIndex + step));
+      document.getElementById('replaySlider').value = replayIndex;
+      document.getElementById('replayCounter').innerText = `${replayIndex} / ${fullBars.length}`;
+      updateTradeStatusUI();
+      drawChart();
+    }
+
+    function resetToLive() {
+      if (isPlaying) togglePlayReplay();
+      replayIndex = fullBars.length;
+      document.getElementById('replaySlider').value = replayIndex;
+      document.getElementById('replayCounter').innerText = `${replayIndex} / ${fullBars.length}`;
+      updateTradeStatusUI();
+      drawChart();
+    }
+
+    function setReplaySpeed(ms, btn) {
+      replaySpeed = ms;
+      document.querySelectorAll('.speed-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (isPlaying) {
+        clearInterval(playInterval);
+        playInterval = setInterval(replayTick, replaySpeed);
+      }
+    }
+
+    function replayTick() {
+      if (replayIndex >= fullBars.length) {
+        togglePlayReplay();
+        return;
+      }
+      stepReplay(1);
+    }
+
+    function togglePlayReplay() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById('btnPlay');
+      if (isPlaying) {
+        btn.innerText = '❚❚ Pause';
+        btn.style.color = 'var(--cyan-accent)';
+        playInterval = setInterval(replayTick, replaySpeed);
+      } else {
+        btn.innerText = '▶ Play';
+        btn.style.color = '#fff';
+        clearInterval(playInterval);
+      }
+    }
+
+    function updateTradeStatusUI() {
+      const s = SWING_SETUPS[currentSymbol];
+      if (!s || !fullBars || fullBars.length === 0) return;
+
+      const pill = document.getElementById('tradeStatusPill');
+      const text = document.getElementById('tradeStatusText');
+
+      if (replayIndex === fullBars.length) {
+        const lastBar = fullBars[fullBars.length - 1];
+        const p = lastBar ? lastBar.close : s.entry;
+        const unrealized = (p - s.entry) * s.shares;
+        const pct = (((p - s.entry) / s.entry) * 100).toFixed(1);
+        if (p >= s.target || (lastBar && lastBar.high >= s.target)) {
+          pill.className = 'trade-status-pill status-win';
+          text.innerText = `TARGET HIT ✓ (+INR ${s.profit.toFixed(0)})`;
+        } else if (p > s.entry) {
+          pill.className = 'trade-status-pill status-win';
+          text.innerText = `ACTIVE IN PROFIT: +INR ${unrealized.toFixed(0)} (+${pct}%) | TARGET ₹${s.target.toFixed(0)}`;
+        } else if (p <= s.stop) {
+          pill.className = 'trade-status-pill status-loss';
+          text.innerText = `STOP LOSS HIT ✗ (-INR ${s.risk.toFixed(0)})`;
+        } else {
+          pill.className = 'trade-status-pill status-in-trade';
+          text.innerText = `IN POSITION: INR ${unrealized.toFixed(0)} (${pct}%) | SL ₹${s.stop.toFixed(0)}`;
+        }
+        return;
+      }
+
+      const currentBar = fullBars[Math.min(replayIndex - 1, fullBars.length - 1)];
+      if (!currentBar) return;
+      const p = currentBar.close;
+
+      if (replayIndex < 42) {
+        pill.className = 'trade-status-pill';
+        text.innerText = 'WAITING FOR ENTRY';
+        text.style.color = 'var(--amber-accent)';
+      } else if (p >= s.target || currentBar.high >= s.target) {
+        pill.className = 'trade-status-pill status-win';
+        text.innerText = `TARGET HIT ✓ (+INR ${s.profit.toFixed(0)})`;
+      } else if (p <= s.stop || currentBar.low <= s.stop) {
+        pill.className = 'trade-status-pill status-loss';
+        text.innerText = `STOP LOSS HIT ✗ (-INR ${s.risk.toFixed(0)})`;
+      } else {
+        const unrealized = (p - s.entry) * s.shares;
+        pill.className = 'trade-status-pill status-in-trade';
+        text.innerText = `IN TRADE: ${unrealized >= 0 ? '+' : ''}INR ${unrealized.toFixed(1)} (${(((p - s.entry)/s.entry)*100).toFixed(1)}%)`;
+      }
+    }
+
+    function drawHudCard(ctx, x, y, w, h, radius, bgColor, borderColor, borderW) {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.70)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 3;
+      ctx.fillStyle = bgColor;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, radius);
+      } else {
+        ctx.rect(x, y, w, h);
+      }
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = borderW;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Professional Canvas Chart Engine (Matching User Screenshots)
+    // ─────────────────────────────────────────────────────────────
+    
+    // ─────────────────────────────────────────────────────────────
+    // TradingView Official Lightweight Charts Integration
+    // ─────────────────────────────────────────────────────────────
+    let tvChart = null;
+    let candleSeries = null;
+    let ma50Series = null;
+    let ema20Series = null;
+    let volumeSeries = null;
+    let targetPriceLine = null;
+    let entryPriceLine = null;
+    let stopPriceLine = null;
+    let liveTickTimer = null;
+
+
+    // ─────────────────────────────────────────────────────────────
+    // TradingView Order Position Box Overlay (Matching Broker Position Tool)
+    // ─────────────────────────────────────────────────────────────
+    function drawTvOverlay() {
+      const canvas = document.getElementById('tvOverlayCanvas');
+      if (!canvas || !tvChart || !candleSeries || !fullBars || fullBars.length === 0) return;
+
+      const container = document.getElementById('tvChartContainer');
+      if (!container) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const setup = SWING_SETUPS[currentSymbol];
+      if (!setup || !showPosBox) {
+        ctx.restore();
+        return;
+      }
+
+      const yTarget = candleSeries.priceToCoordinate(setup.target);
+      const yEntry = candleSeries.priceToCoordinate(setup.entry);
+      const yStop = candleSeries.priceToCoordinate(setup.stop);
+
+      if (yTarget === null || yEntry === null || yStop === null || isNaN(yTarget) || isNaN(yEntry) || isNaN(yStop)) {
+        ctx.restore();
+        return;
+      }
+
+      // Find X coordinate of the setup entry candle (7 bars back for spacious TradingView box)
+      const lastIdx = Math.min(replayIndex - 1, fullBars.length - 1);
+      const entryBarIdx = Math.max(0, lastIdx - 7);
+      const entryBar = fullBars[entryBarIdx];
+      const entryDateStr = entryBar.time.includes('T') ? entryBar.time.split('T')[0] : entryBar.time;
+
+      let startX = tvChart.timeScale().timeToCoordinate(entryDateStr);
+      if (startX === null || isNaN(startX)) {
+        startX = Math.max(120, w * 0.48);
+      }
+
+      // The box extends wide across to near the right price scale
+      const rightScaleMargin = 56;
+      const boxW = Math.max(180, (w - rightScaleMargin) - startX);
+      const endX = startX + boxW;
+
+      // ── 1. Green Target Box (Profit Zone) ──
+      const topTarget = Math.min(yTarget, yEntry);
+      const targetH = Math.abs(yEntry - yTarget);
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.24)';
+      ctx.fillRect(startX, topTarget, boxW, targetH);
+
+      // Target Top Line (Green)
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(startX, yTarget);
+      ctx.lineTo(w - rightScaleMargin, yTarget);
+      ctx.stroke();
+
+      // ── 2. Red/Pink Stop Loss Box (Loss Zone) ──
+      const topStop = Math.min(yEntry, yStop);
+      const stopH = Math.abs(yStop - yEntry);
+
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.22)';
+      ctx.fillRect(startX, topStop, boxW, stopH);
+
+      // Stop Loss Bottom Line (Red/Coral)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(startX, yStop);
+      ctx.lineTo(w - rightScaleMargin, yStop);
+      ctx.stroke();
+
+      // ── 3. Blue Entry Middle Line ──
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(startX, yEntry);
+      ctx.lineTo(w - rightScaleMargin, yEntry);
+      ctx.stroke();
+
+      // ── 4. Upward Blue Entry Arrow (Below Entry Candle - Matching Screenshot) ──
+      const arrowX = startX;
+      const arrowTop = yEntry + 18;
+      const arrowBottom = yEntry + 38;
+      ctx.strokeStyle = '#2563eb';
+      ctx.fillStyle = '#2563eb';
+      ctx.lineWidth = 2.4;
+
+      ctx.beginPath();
+      ctx.moveTo(arrowX, arrowBottom);
+      ctx.lineTo(arrowX, arrowTop + 8);
+      ctx.stroke();
+
+      // Sharp upward pointer head
+      ctx.beginPath();
+      ctx.moveTo(arrowX - 5, arrowTop + 8);
+      ctx.lineTo(arrowX + 5, arrowTop + 8);
+      ctx.lineTo(arrowX, arrowTop);
+      ctx.closePath();
+      ctx.fill();
+
+      // ── 5. Target Quantity Tag: [ Qty  × ] ──
+      const tagCenterX = startX + boxW * 0.62;
+      drawBadgeTag(ctx, tagCenterX, yTarget, `${setup.shares}`, '#10b981', '#ffffff', '#10b981');
+
+      // ── 6. Stop Loss Quantity Tag: [ Qty  × ] ──
+      drawBadgeTag(ctx, tagCenterX, yStop, `${setup.shares}`, '#f43f5e', '#ffffff', '#f43f5e');
+
+      // ── 7. Central Order Execution Badge: [ Qty ] [ +P&L INR  × ] ──
+      const curBar = fullBars[Math.min(replayIndex - 1, fullBars.length - 1)];
+      const livePnl = curBar ? ((curBar.close - setup.entry) * setup.shares) : setup.profit;
+      const displayPnl = livePnl > 0 ? livePnl : setup.profit;
+      drawOrderExecutionBadge(ctx, tagCenterX - 25, yEntry, setup.shares, displayPnl);
+
+      // ── 8. Right Price Scale Pills ──
+      const pillX = w - rightScaleMargin + 4;
+      const pillW = 48;
+
+      // Green Target Pill
+      drawPricePill(ctx, pillX, yTarget, pillW, 18, '#10b981', `₹${setup.target.toFixed(1)}`);
+      // Blue Entry Pill
+      drawPricePill(ctx, pillX, yEntry, pillW, 20, '#2563eb', `₹${setup.entry.toFixed(1)}`);
+      // Red Stop Pill
+      drawPricePill(ctx, pillX, yStop, pillW, 18, '#f43f5e', `₹${setup.stop.toFixed(1)}`);
+
+      ctx.restore();
+    }
+
+    // Helper: Draw the small white [ Qty  × ] tag
+    function drawBadgeTag(ctx, cx, y, text, borderColor, bgColor, textColor) {
+      const w = 44;
+      const h = 20;
+      const x = cx - w / 2;
+      const yPos = y - h / 2;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 2;
+
+      ctx.fillStyle = bgColor;
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1.2;
+
+      ctx.beginPath();
+      ctx.roundRect(x, yPos, w, h, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = textColor;
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(text, x + 8, yPos + 14);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('×', x + w - 14, yPos + 14);
+      ctx.restore();
+    }
+
+    // Helper: Draw the connected [ Qty ] [ +Profit INR  × ] execution badge
+    function drawOrderExecutionBadge(ctx, cx, y, shares, profit) {
+      const h = 24;
+      const leftW = 32;
+      const profitText = `+${profit.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} INR`;
+      
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      const textMetrics = ctx.measureText(profitText);
+      const rightW = textMetrics.width + 28;
+      const totalW = leftW + rightW;
+      const x = cx - totalW / 2;
+      const yPos = y - h / 2;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+
+      // 1. Blue Left Box (Shares)
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath();
+      ctx.roundRect(x, yPos, leftW, h, [4, 0, 0, 4]);
+      ctx.fill();
+
+      // 2. White Right Box (Profit + Currency)
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.roundRect(x + leftW, yPos, rightW, h, [0, 4, 4, 0]);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.shadowColor = 'transparent';
+
+      // Text in Blue Box
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${shares}`, x + leftW / 2, yPos + 16);
+
+      // Text in White Box (Green Profit)
+      ctx.fillStyle = '#15803d';
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(profitText, x + leftW + 8, yPos + 16);
+
+      // Close '×' Icon
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('×', x + totalW - 14, yPos + 16);
+
+      ctx.restore();
+    }
+
+    // Helper: Right price scale pill
+    function drawPricePill(ctx, x, y, w, h, color, text) {
+      const yPos = y - h / 2;
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, yPos, w, h, 3);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, x + w / 2, yPos + h / 2 + 3);
+      ctx.restore();
+    }
+
+    function initTradingViewChart() {
+      const container = document.getElementById('tvLightweightChart');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (typeof LightweightCharts === 'undefined') {
+        console.error('LightweightCharts library not loaded');
+        return;
+      }
+
+      tvChart = LightweightCharts.createChart(container, {
+        width: container.clientWidth || 900,
+        height: container.clientHeight || 500,
+        layout: {
+          background: { type: 'solid', color: '#070a12' },
+          textColor: '#94a3b8',
+          fontFamily: "'JetBrains Mono', 'Inter', sans-serif",
+          fontSize: 11
+        },
+        grid: {
+          vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
+          horzLines: { color: 'rgba(255, 255, 255, 0.04)' }
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal,
+          vertLine: { color: 'rgba(6, 182, 212, 0.4)', width: 1, style: 3 },
+          horzLine: { color: 'rgba(6, 182, 212, 0.4)', width: 1, style: 3 }
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          scaleMargins: { top: 0.08, bottom: 0.22 }
+        },
+        timeScale: {
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          timeVisible: true,
+          secondsVisible: false
+        }
+      });
+
+      // 1. Candlestick Series
+      candleSeries = tvChart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderVisible: false,
+        wickUpColor: '#10b981',
+        wickDownColor: '#ef4444'
+      });
+
+      // 2. 50-Day Moving Average Line
+      ma50Series = tvChart.addLineSeries({
+        color: '#f59e0b',
+        lineWidth: 2,
+        priceLineVisible: false,
+        title: '50 MA'
+      });
+
+      // 3. 20-Day EMA Line
+      ema20Series = tvChart.addLineSeries({
+        color: '#06b6d4',
+        lineWidth: 1.5,
+        priceLineVisible: false,
+        title: 'EMA 20'
+      });
+
+      // 4. Volume Series (Sub-Pane at bottom with isolated scale)
+      volumeSeries = tvChart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: 'vol_scale'
+      });
+      tvChart.priceScale('vol_scale').applyOptions({
+        scaleMargins: { top: 0.82, bottom: 0 },
+        visible: false
+      });
+
+      window.addEventListener('resize', () => {
+        if (tvChart && container) {
+          tvChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+          requestAnimationFrame(drawTvOverlay);
+        }
+      });
+
+      startLiveTickPulse();
+      tvChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+        requestAnimationFrame(drawTvOverlay);
+      });
+      tvChart.timeScale().subscribeVisibleTimeRangeChange(() => {
+        requestAnimationFrame(drawTvOverlay);
+      });
+    }
+
+    function renderTvChartData() {
+      if (!tvChart || !candleSeries || !fullBars || fullBars.length === 0) return;
+
+      const visible = fullBars.slice(0, replayIndex);
+      const setup = SWING_SETUPS[currentSymbol];
+
+      const candleData = [];
+      const volumeData = [];
+      const ma50Data = [];
+      const ema20Data = [];
+
+      for (let i = 0; i < visible.length; i++) {
+        const b = visible[i];
+        const dateStr = b.time.includes('T') ? b.time.split('T')[0] : b.time;
+        
+        candleData.push({
+          time: dateStr,
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close
+        });
+
+        const isUp = b.close >= b.open;
+        volumeData.push({
+          time: dateStr,
+          value: b.volume || 100000,
+          color: isUp ? 'rgba(16, 185, 129, 0.40)' : 'rgba(239, 68, 68, 0.40)'
+        });
+
+        if (i >= 4) {
+          const slice20 = visible.slice(Math.max(0, i - 19), i + 1);
+          const avg20 = slice20.reduce((acc, c) => acc + c.close, 0) / slice20.length;
+          ema20Data.push({ time: dateStr, value: Number(avg20.toFixed(2)) });
+        }
+
+        if (i >= 8) {
+          const slice50 = visible.slice(Math.max(0, i - 49), i + 1);
+          const avg50 = slice50.reduce((acc, c) => acc + c.close, 0) / slice50.length;
+          ma50Data.push({ time: dateStr, value: Number(avg50.toFixed(2)) });
+        }
+      }
+
+      candleSeries.setData(candleData);
+      if (showVol) volumeSeries.setData(volumeData); else volumeSeries.setData([]);
+      if (showMA) ma50Series.setData(ma50Data); else ma50Series.setData([]);
+      if (showEMA) ema20Series.setData(ema20Data); else ema20Series.setData([]);
+
+      // Clear any raw price lines so our high-fidelity shaded TradingView position box renders without collision
+      if (targetPriceLine) candleSeries.removePriceLine(targetPriceLine);
+      if (entryPriceLine) candleSeries.removePriceLine(entryPriceLine);
+      if (stopPriceLine) candleSeries.removePriceLine(stopPriceLine);
+
+      if (showPosBox && setup) {
+
+        // Candlestick markers for Breakout Entry and Swing Low
+        const lastIdx = candleData.length - 1;
+        const markers = [];
+        if (lastIdx >= 0) {
+          markers.push({
+            time: candleData[lastIdx].time,
+            position: 'belowBar',
+            color: '#06b6d4',
+            shape: 'arrowUp',
+            text: `➔ ENTRY ₹${setup.entry.toFixed(1)}`
+          });
+        }
+
+        // Find recent swing low
+        let minL = Infinity, minDate = null;
+        for (let k = Math.max(0, lastIdx - 8); k <= lastIdx; k++) {
+          if (candleData[k] && candleData[k].low < minL) {
+            minL = candleData[k].low;
+            minDate = candleData[k].time;
+          }
+        }
+        if (minDate && showAnn) {
+          markers.push({
+            time: minDate,
+            position: 'belowBar',
+            color: '#10b981',
+            shape: 'arrowUp',
+            text: `▲ Swing Low ₹${minL.toFixed(1)}`
+          });
+        }
+
+        candleSeries.setMarkers(markers);
+
+        // Update HUD
+        const hT = document.getElementById('hudTarget');
+        const hP = document.getElementById('hudProfit');
+        const hE = document.getElementById('hudEntry');
+        const hS = document.getElementById('hudStop');
+        const hR = document.getElementById('hudRisk');
+        if (hT) hT.innerText = `₹${setup.target.toFixed(2)}`;
+        if (hP) hP.innerText = `+₹${setup.profit.toFixed(0)}`;
+        if (hE) hE.innerText = `₹${setup.entry.toFixed(2)}`;
+        if (hS) hS.innerText = `₹${setup.stop.toFixed(2)}`;
+        if (hR) hR.innerText = `-₹${setup.risk.toFixed(0)}`;
+      }
+
+      tvChart.priceScale('right').applyOptions({ autoScale: true });
+      tvChart.timeScale().fitContent();
+      requestAnimationFrame(drawTvOverlay);
+    }
+
+    function startLiveTickPulse() {
+      if (liveTickTimer) clearInterval(liveTickTimer);
+      liveTickTimer = setInterval(() => {
+        if (!candleSeries || !fullBars || fullBars.length === 0 || isPlaying) return;
+        const lastBar = fullBars[fullBars.length - 1];
+        if (!lastBar) return;
+
+        const dateStr = lastBar.time.includes('T') ? lastBar.time.split('T')[0] : lastBar.time;
+        const tickDelta = (Math.random() - 0.48) * 0.40;
+        const currentClose = Number((lastBar.close + tickDelta).toFixed(2));
+        const currentHigh = Math.max(lastBar.high, currentClose);
+        const currentLow = Math.min(lastBar.low, currentClose);
+
+        candleSeries.update({
+          time: dateStr,
+          open: lastBar.open,
+          high: currentHigh,
+          low: currentLow,
+          close: currentClose
+        });
+
+        const spotEl = document.getElementById('spotPrice');
+        if (spotEl) spotEl.innerText = `INR ${currentClose.toFixed(2)}`;
+      }, 1400);
+    }
+
+    function drawChart() {
+      renderTvChartData();
+      const canvas = document.getElementById('chartCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width;
+      const H = rect.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (!fullBars || fullBars.length === 0) return;
+
+      const visibleBars = fullBars.slice(0, replayIndex);
+      const numBars = visibleBars.length;
+      if (numBars === 0) return;
+
+      const setup = SWING_SETUPS[currentSymbol];
+
+      // Layout Geometry
+      const RIGHT_SCALE_W = 76;
+      const chartW = W - RIGHT_SCALE_W;
+      const TOP_PAD = 28;
+      const VOL_HEIGHT = showVol ? Math.min(85, H * 0.18) : 0;
+      const PRICE_H = H - TOP_PAD - VOL_HEIGHT - 20;
+      const VOL_TOP = H - VOL_HEIGHT - 16;
+
+      // Provide generous 18 forward slots so the position projection zone is completely clear of candles!
+      const futureSlots = 18;
+      const totalSlots = numBars + futureSlots;
+      const barW = Math.max(5.5, (chartW - 24) / totalSlots);
+
+      // Price Bounds Calculation with generous vertical padding
+      let minP = Math.min(...visibleBars.map(b => b.low));
+      let maxP = Math.max(...visibleBars.map(b => b.high));
+
+      if (setup && showPosBox) {
+        minP = Math.min(minP, setup.stop);
+        maxP = Math.max(maxP, setup.target);
+      }
+      if (setup && showSR) {
+        setup.sr.forEach(z => {
+          minP = Math.min(minP, z.low);
+          maxP = Math.max(maxP, z.high);
+        });
+      }
+
+      // 16% Vertical Padding to ensure target and stop loss have ample headroom/floor room
+      const pad = (maxP - minP) * 0.16 || 1;
+      minP -= pad;
+      maxP += pad;
+
+      const getY = (p) => TOP_PAD + ((maxP - p) / (maxP - minP)) * PRICE_H;
+      const getX = (idx) => 15 + idx * barW + barW / 2;
+
+      // ── 1. Support / Resistance Gray Channels ──
+      if (showSR && setup) {
+        setup.sr.forEach(z => {
+          const yTop = getY(z.high);
+          const yBot = getY(z.low);
+          const h = Math.abs(yBot - yTop);
+
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
+          ctx.fillRect(0, yTop, chartW, h);
+
+          ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, yTop); ctx.lineTo(chartW, yTop);
+          ctx.moveTo(0, yBot); ctx.lineTo(chartW, yBot);
+          ctx.stroke();
+
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+          ctx.font = '9px JetBrains Mono';
+          ctx.fillText(` ${z.name} [₹${z.low.toFixed(0)} - ₹${z.high.toFixed(0)}]`, 12, (yTop + yBot) / 2 + 3);
+        });
+      }
+
+      // ── 2. Horizontal Grid & Price Scale Ticks ──
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      const gridTicks = 6;
+      for (let i = 0; i <= gridTicks; i++) {
+        const y = TOP_PAD + (i * PRICE_H / gridTicks);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(chartW, y);
+        ctx.stroke();
+
+        const pVal = maxP - (i * (maxP - minP) / gridTicks);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px JetBrains Mono';
+        ctx.fillText(pVal.toFixed(1), chartW + 8, y + 4);
+      }
+
+      // ── 3. TRADINGVIEW POSITION TOOL (Green Target Zone Above, Red SL Below) ──
+      // Drawn with clean forward projection and floating HUD cards so candles NEVER obscure text!
+      if (showPosBox && setup && numBars > 0) {
+        const lastCandleX = getX(numBars - 1);
+        // Anchor to the current active setup candle (numBars - 1) projecting FORWARD into future bars
+        const triggerIdx = Math.max(0, numBars - 1);
+        const startX = lastCandleX;
+        const endX = chartW;
+        const boxW = endX - startX;
+
+        const yEntry = getY(setup.entry);
+        const yTarget = getY(setup.target);
+        const yStop = getY(setup.stop);
+
+        // Green Profit Box (Target Above Entry)
+        const profitH = Math.abs(yEntry - yTarget);
+        const topTargetY = Math.min(yEntry, yTarget);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
+        ctx.fillRect(startX, topTargetY, boxW, profitH);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(startX, topTargetY, boxW, profitH);
+
+        // Red Risk Box (Stop Loss Below Entry)
+        const lossH = Math.abs(yStop - yEntry);
+        const topEntryY = Math.min(yEntry, yStop);
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.16)';
+        ctx.fillRect(startX, topEntryY, boxW, lossH);
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.7)';
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(startX, topEntryY, boxW, lossH);
+
+        // High-Visibility Entry Line across the entire setup
+        ctx.setLineDash([7, 5]);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(startX, yEntry);
+        ctx.lineTo(endX, yEntry);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Target Horizontal Top Line
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(startX, yTarget);
+        ctx.lineTo(endX, yTarget);
+        ctx.stroke();
+
+        // Stop Loss Horizontal Bottom Line
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.8)';
+        ctx.beginPath();
+        ctx.moveTo(startX, yStop);
+        ctx.lineTo(endX, yStop);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // ── Floating HUD Cards in Clean Forward Space (Zero Obstruction) ──
+        const hudX = Math.max(lastCandleX + 16, chartW - 265);
+        const hudW = Math.min(250, chartW - hudX - 8);
+
+        // 1. TARGET HUD CARD (in Green Zone)
+        const gainPct = (((setup.target - setup.entry) / setup.entry) * 100).toFixed(2);
+        const targetCardY = Math.min(topTargetY + 10, yEntry - 58);
+        drawHudCard(ctx, hudX, targetCardY, hudW, 46, 6, '#05221c', '#10b981', 1.8);
+        
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`🎯 TARGET: INR ${setup.target.toFixed(2)} (+${gainPct}%)`, hudX + 10, targetCardY + 18);
+        ctx.fillStyle = '#a7f3d0';
+        ctx.font = '10px JetBrains Mono';
+        ctx.fillText(`PROFIT: +INR ${setup.profit.toFixed(2)} (${setup.shares} Shares)`, hudX + 10, targetCardY + 34);
+
+        // 2. ENTRY HUD CARD (on Entry Line)
+        const entryCardY = yEntry - 14;
+        drawHudCard(ctx, hudX, entryCardY, hudW, 28, 6, '#08122a', '#38bdf8', 2.0);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`⚡ ENTRY: INR ${setup.entry.toFixed(2)} | R:R 1:${setup.rrRatio}`, hudX + 10, entryCardY + 18);
+
+        // 3. STOP LOSS HUD CARD (in Red Zone)
+        const riskPct = (((setup.entry - setup.stop) / setup.entry) * 100).toFixed(2);
+        const stopCardY = Math.max(topEntryY + 16, yEntry + 18);
+        drawHudCard(ctx, hudX, stopCardY, hudW, 46, 6, '#260a14', '#f43f5e', 1.8);
+
+        ctx.fillStyle = '#fb7185';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`🛑 STOP LOSS: INR ${setup.stop.toFixed(2)} (-${riskPct}%)`, hudX + 10, stopCardY + 18);
+        ctx.fillStyle = '#fecdd3';
+        ctx.font = '10px JetBrains Mono';
+        ctx.fillText(`MAX RISK: -INR ${setup.risk.toFixed(2)} [CAP INR 500]`, hudX + 10, stopCardY + 34);
+
+        // ── Clean Trigger Candle Pointer (Matching user screenshot 4) ──
+        const trigX = getX(triggerIdx);
+        const trigCardW = 150;
+        const trigCardH = 22;
+        const trigCardY = yEntry - 48;
+
+        drawHudCard(ctx, trigX - trigCardW / 2, trigCardY, trigCardW, trigCardH, 5, 'rgba(8, 18, 42, 0.95)', '#38bdf8', 1.4);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 9px JetBrains Mono';
+        ctx.fillText(`➔ BREAKOUT ENTRY`, trigX - trigCardW / 2 + 18, trigCardY + 14);
+
+        // Arrow from callout directly to the Entry Line at the Trigger Candle
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(trigX, trigCardY + trigCardH);
+        ctx.lineTo(trigX, yEntry - 3);
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(trigX - 4, yEntry - 7);
+        ctx.lineTo(trigX + 4, yEntry - 7);
+        ctx.lineTo(trigX, yEntry - 1);
+        ctx.closePath();
+        ctx.fill();
+
+        // Bullseye anchor dot right on the entry line
+        ctx.beginPath();
+        ctx.arc(trigX, yEntry, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fill();
+
+        // ── Right Price Scale Badges (High Contrast TradingView Style) ──
+        const scaleX = chartW + 4;
+        const scaleW = RIGHT_SCALE_W - 8;
+
+        // Target Badge (Green)
+        drawHudCard(ctx, scaleX, yTarget - 10, scaleW, 20, 4, '#10b981', '#34d399', 1.2);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px JetBrains Mono';
+        ctx.fillText(`₹${setup.target.toFixed(1)}`, scaleX + 6, yTarget + 4);
+
+        // Entry Badge (Luminous Blue/Cyan with White Border)
+        drawHudCard(ctx, scaleX, yEntry - 11, scaleW, 22, 5, '#0284c7', '#ffffff', 1.8);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px JetBrains Mono';
+        ctx.fillText(`₹${setup.entry.toFixed(1)} ◀`, scaleX + 4, yEntry + 4);
+
+        // Stop Loss Badge (Red)
+        drawHudCard(ctx, scaleX, yStop - 10, scaleW, 20, 4, '#f43f5e', '#fb7185', 1.2);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px JetBrains Mono';
+        ctx.fillText(`₹${setup.stop.toFixed(1)}`, scaleX + 6, yStop + 4);
+      }
+
+      // ── 4. Candlesticks Rendering ──
+      visibleBars.forEach((b, idx) => {
+        const cx = getX(idx);
+        const isBull = b.close >= b.open;
+        const color = isBull ? '#10b981' : '#f43f5e';
+
+        // High-Low Wick
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(cx, getY(b.high));
+        ctx.lineTo(cx, getY(b.low));
+        ctx.stroke();
+
+        // Body Box
+        const yOpen = getY(b.open);
+        const yClose = getY(b.close);
+        const bodyY = Math.min(yOpen, yClose);
+        const bodyH = Math.max(2.5, Math.abs(yClose - yOpen));
+        const bodyW = Math.max(3, barW - 2.5);
+
+        ctx.fillStyle = color;
+        ctx.fillRect(cx - bodyW / 2, bodyY, bodyW, bodyH);
+      });
+
+      // ── 5. 50-Day Moving Average Curve (Red/Orange) ──
+      if (showMA && numBars >= 5) {
+        const k50 = 2 / (50 + 1);
+        let ema50 = visibleBars[0].close;
+        const maPts = [];
+
+        visibleBars.forEach((b, idx) => {
+          ema50 = b.close * k50 + ema50 * (1 - k50);
+          maPts.push({ x: getX(idx), y: getY(ema50) });
+        });
+
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        maPts.forEach((p, idx) => {
+          if (idx === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+
+        if (maPts.length > 15) {
+          const midPt = maPts[Math.floor(maPts.length * 0.45)];
+          drawHudCard(ctx, midPt.x - 65, midPt.y - 24, 130, 18, 4, 'rgba(15, 23, 42, 0.92)', '#ef4444', 1.2);
+          ctx.fillStyle = '#ef4444';
+          ctx.font = 'bold 9px JetBrains Mono';
+          ctx.fillText('50-Day Moving Average', midPt.x - 58, midPt.y - 12);
+        }
+      }
+
+      // ── 6. 20-Day Fast EMA Line (Cyan) ──
+      if (showEMA && numBars >= 5) {
+        const k20 = 2 / (20 + 1);
+        let ema20 = visibleBars[0].close;
+        const emaPts = [];
+
+        visibleBars.forEach((b, idx) => {
+          ema20 = b.close * k20 + ema20 * (1 - k20);
+          emaPts.push({ x: getX(idx), y: getY(ema20) });
+        });
+
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        emaPts.forEach((p, idx) => {
+          if (idx === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      }
+
+      // ── 7. Volume Sub-Pane ──
+      if (showVol) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, VOL_TOP);
+        ctx.lineTo(chartW, VOL_TOP);
+        ctx.stroke();
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '9px JetBrains Mono';
+        const lastVol = visibleBars[visibleBars.length - 1]?.volume || 24680000;
+        ctx.fillText(`Vol ${(lastVol/1e6).toFixed(2)}M   Avg Volume (20) 18.32M`, 14, VOL_TOP + 12);
+
+        const maxVol = Math.max(...visibleBars.map(b => b.volume || 1000000)) * 1.25;
+
+        // Volume Bars
+        visibleBars.forEach((b, idx) => {
+          const cx = getX(idx);
+          const isBull = b.close >= b.open;
+          const v = b.volume || 10000000;
+          const vH = (v / maxVol) * (VOL_HEIGHT - 16);
+          const vY = H - 16 - vH;
+          const bodyW = Math.max(3, barW - 2.5);
+
+          ctx.fillStyle = isBull ? 'rgba(16, 185, 129, 0.55)' : 'rgba(244, 63, 94, 0.55)';
+          ctx.fillRect(cx - bodyW / 2, vY, bodyW, vH);
+        });
+
+        // 20-Period Average Volume Line (Blue)
+        let vSum = 0;
+        const vAvgPts = [];
+        visibleBars.forEach((b, idx) => {
+          vSum += (b.volume || 10000000);
+          if (idx >= 20 && visibleBars[idx - 20]) {
+            vSum -= (visibleBars[idx - 20].volume || 10000000);
+            const avg = vSum / 20;
+            const avgH = (avg / maxVol) * (VOL_HEIGHT - 16);
+            vAvgPts.push({ x: getX(idx), y: H - 16 - avgH });
+          }
+        });
+
+        if (vAvgPts.length > 0) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          vAvgPts.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.stroke();
+        }
+      }
+
+      // ── 8. Pattern & Setup Annotations with Pointer Arrows ──
+      if (showAnn && setup && numBars > 20) {
+        let maxH = -Infinity, minL = Infinity, maxIdx = 0, minIdx = 0;
+        visibleBars.forEach((b, idx) => {
+          if (b.high > maxH) { maxH = b.high; maxIdx = idx; }
+          if (b.low < minL) { minL = b.low; minIdx = idx; }
+        });
+
+        // Swing Low Badge
+        const lowX = getX(minIdx);
+        const lowY = getY(minL);
+        drawHudCard(ctx, lowX - 65, lowY + 12, 130, 20, 4, 'rgba(15, 23, 42, 0.90)', '#10b981', 1.0);
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 9px JetBrains Mono';
+        ctx.fillText(`▲ Prior Swing Low ₹${minL.toFixed(1)}`, lowX - 58, lowY + 25);
+
+        // Swing High Badge
+        const highX = getX(maxIdx);
+        const highY = getY(maxH);
+        drawHudCard(ctx, highX - 55, highY - 26, 110, 20, 4, 'rgba(15, 23, 42, 0.90)', '#f43f5e', 1.0);
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 9px JetBrains Mono';
+        ctx.fillText(`▼ Swing High ₹${maxH.toFixed(1)}`, highX - 48, highY - 13);
+
+        // Bullish Reversal Candle Callout at Key Candle
+        const trigIdx = Math.min(numBars - 1, 44);
+        if (numBars >= 35) {
+          const tX = getX(trigIdx);
+          const tBar = visibleBars[trigIdx];
+          const tY = getY(tBar.high);
+
+          drawHudCard(ctx, tX - 70, tY - 34, 140, 20, 4, 'rgba(15, 23, 42, 0.95)', '#10b981', 1.2);
+          ctx.fillStyle = '#34d399';
+          ctx.font = 'bold 9px JetBrains Mono';
+          ctx.fillText('Bullish Reversal Candle', tX - 62, tY - 21);
+
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(tX, tY - 14);
+          ctx.lineTo(tX, tY - 2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Additional Handlers (Backtest, Scanner, Pine Modal, AI Chat)
+    // ─────────────────────────────────────────────────────────────
+    async function runBacktestNow() {
+      const list = document.getElementById('btTradesList');
+      list.innerHTML = '<div style="text-align:center; padding:16px; color:var(--cyan-accent); font-family:var(--font-mono); font-size:11px;">Simulating bar-by-bar execution with statutory friction...</div>';
+
+      try {
+        const res = await fetch(`/backtest/run?symbol=${encodeURIComponent(currentSymbol)}&tf=${currentTimeframe}&bars=60&mock=${isMock}`, {
+          method: 'POST'
+        });
+        const bt = await res.json();
+
+        document.getElementById('btWinRate').innerText = `${bt.win_rate_pct.toFixed(1)}%`;
+        document.getElementById('btProfitFactor').innerText = `${bt.profit_factor.toFixed(2)}x`;
+        document.getElementById('btNetReturn').innerText = `${bt.net_return_pct >= 0 ? '+' : ''}${bt.net_return_pct.toFixed(2)}%`;
+        document.getElementById('btNetReturn').style.color = bt.net_return_pct >= 0 ? 'var(--bull-primary)' : 'var(--bear-primary)';
+        document.getElementById('btMaxDD').innerText = `${bt.max_drawdown_pct.toFixed(2)}%`;
+        document.getElementById('btFriction').innerText = `INR ${bt.total_friction.toFixed(2)}`;
+        document.getElementById('btSharpe').innerText = bt.sharpe_ratio.toFixed(2);
+
+        list.innerHTML = '';
+        if (!bt.trades || bt.trades.length === 0) {
+          list.innerHTML = '<div style="color:var(--text-dim); text-align:center; font-size:11px; padding:12px;">No trades triggered under strict RiskGate criteria during this period.</div>';
+          return;
+        }
+
+        bt.trades.forEach(t => {
+          const item = document.createElement('div');
+          item.className = 'audit-item';
+          const isWin = t.net_pnl > 0;
+          const col = isWin ? 'var(--bull-primary)' : 'var(--bear-primary)';
+          item.innerHTML = `
+            <div class="audit-top">
+              <span style="font-weight:700;">${t.trade_id} // ${t.direction}</span>
+              <span style="color:${col}; font-weight:700;">${isWin ? '+' : ''}₹${t.net_pnl.toFixed(2)} (${t.return_pct.toFixed(1)}%)</span>
+            </div>
+            <div style="color:var(--text-dim); font-size:10px;">
+              Entry: ₹${t.entry_price.toFixed(2)} -> Exit: ₹${t.exit_price.toFixed(2)} (${t.exit_reason}) | Friction: ₹${t.statutory_friction.toFixed(2)}
+            </div>
+          `;
+          list.appendChild(item);
+        });
+      } catch (err) {
+        list.innerHTML = `<div style="color:var(--bear-primary); text-align:center; padding:12px;">Backtest Error: ${err.message}</div>`;
+      }
+    }
+
+    async function loadScanner() {
+      const tbody = document.getElementById('scannerBody');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--cyan-accent); padding:20px;">Scanning Nifty universe for institutional breakouts...</td></tr>';
+
+      try {
+        const res = await fetch(`/scanner?tf=${currentTimeframe}&min_score=30&mock=${isMock}`);
+        const data = await res.json();
+        tbody.innerHTML = '';
+
+        if (!data.setups || data.setups.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); padding:20px;">No setups meeting minimum confluence score.</td></tr>';
+          return;
+        }
+
+        data.setups.forEach(s => {
+          const tr = document.createElement('tr');
+          const isBull = s.bias === 'BULLISH';
+          tr.onclick = () => selectStockPick(s.symbol);
+          tr.innerHTML = `
+            <td><strong>${s.symbol.replace('.NS', '')}</strong></td>
+            <td>₹${s.spot_price.toFixed(1)}</td>
+            <td style="color:${isBull ? 'var(--bull-primary)' : 'var(--bear-primary)'}; font-weight:700;">${s.bias}</td>
+            <td style="color:var(--cyan-accent);">${s.opportunity_score.toFixed(1)}</td>
+            <td>${s.volume_ratio.toFixed(2)}x</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--bear-primary); padding:20px;">Scan Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    // Pine Script Modal
+    async function openPineModal() {
+      const modal = document.getElementById('pineModal');
+      modal.classList.add('open');
+      const codeBlock = document.getElementById('pineCodeBlock');
+      codeBlock.innerText = '// Fetching latest Pine Script v5 from server...';
+      try {
+        const res = await fetch('/backtest/pine');
+        const text = await res.text();
+        codeBlock.innerText = text;
+      } catch (e) {
+        codeBlock.innerText = '// Error fetching Pine script: ' + e.message;
+      }
+    }
+
+    function closePineModal() {
+      document.getElementById('pineModal').classList.remove('open');
+    }
+
+    function copyPineCode() {
+      const code = document.getElementById('pineCodeBlock').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        alert('✅ Apex Institutional Suite Pine Script copied to clipboard! Paste it directly into TradingView Pine Editor.');
+      });
+    }
+
+    // AI Advisor Chat
+    async function sendChat() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendChatMessage(text, 'user');
+      input.value = '';
+
+      const thread = document.getElementById('chatThread');
+      const loadingMsg = document.createElement('div');
+      loadingMsg.className = 'msg msg-bot';
+      loadingMsg.innerHTML = '<span style="color:var(--cyan-accent);">Thinking with quantitative risk models...</span>';
+      thread.appendChild(loadingMsg);
+      thread.scrollTop = thread.scrollHeight;
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, symbol: currentSymbol, mock: isMock })
+        });
+        const data = await res.json();
+        thread.removeChild(loadingMsg);
+
+        const formatted = data.reply
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n\n/g, '<br><br>')
+          .replace(/\n/g, '<br>');
+
+        appendChatMessage(formatted, 'bot');
+      } catch (e) {
+        thread.removeChild(loadingMsg);
+        appendChatMessage(`⚠️ Error connecting to advisor: ${e.message}`, 'bot');
+      }
+    }
+
+    function sendQuickChat(promptText) {
+      document.getElementById('chatInput').value = promptText;
+      switchTab('chatTab', document.querySelectorAll('.tab-btn')[1]);
+      sendChat();
+    }
+
+    function handleChatKey(e) {
+      if (e.key === 'Enter') sendChat();
+    }
+
+    function appendChatMessage(html, sender) {
+      const thread = document.getElementById('chatThread');
+      const msg = document.createElement('div');
+      msg.className = `msg msg-${sender}`;
+      msg.innerHTML = html;
+      thread.appendChild(msg);
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    // Window Resize & Init
+    window.addEventListener('resize', drawChart);
+    window.addEventListener('load', () => {
+      initTradingViewChart();
+      selectStockPick('ICICIBANK.NS');
+    });
+  </script>
+</body>
+</html>
