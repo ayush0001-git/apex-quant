@@ -141,7 +141,7 @@ apex-quant/
 
 ---
 
-### 🔲 Step 2: Feature Layer & Causality Verification (Est: 2–3 Days)
+### 🟩 Step 2: [COMPLETED] Feature Layer & Causality Verification
 - [x] **2.1**: Implement `core/features.py` (`FeatureService`):
   - Pure, stateless function accepting strictly `Sequence[Bar]` and returning `FeatureSnapshot`.
   - Integrates `ta-lib` (61 candlestick patterns) and `pandas-ta-classic` (SuperTrend, VWAP, ATR).
@@ -153,7 +153,7 @@ apex-quant/
 
 ---
 
-### 🔲 Step 3: Kronos Forecast Service (Probabilistic Wrapper) (Est: 1–2 Days)
+### 🟩 Step 3: [COMPLETED] Kronos Forecast Service (Probabilistic Wrapper)
 - [x] **3.1**: Implement `core/forecast.py` (`ForecastService`):
   - Ingests last 200–512 closed bars.
   - Generates future projected High/Low range bands and directional probability.
@@ -162,7 +162,7 @@ apex-quant/
 
 ---
 
-### 🔲 Step 4: Decision Engine & Split-Brain LLM Layer (Est: 3–4 Days)
+### 🟩 Step 4: [COMPLETED] Decision Engine & Split-Brain LLM Layer
 - [x] **4.1**: Implement `adapters/llm/free_pool.py`:
   - Wraps `freellmapi` to implement `scan_batch()` across 50–100 candidate symbols.
   - Strictly banned from implementing `synthesize()`.
@@ -177,7 +177,7 @@ apex-quant/
 
 ---
 
-### 🔲 Step 5: Risk Gate (Pure Math, Zero LLM) (Est: 2–3 Days)
+### 🟩 Step 5: [COMPLETED] Risk Gate (Pure Math, Zero LLM)
 - [x] **5.1**: Implement `core/risk.py` (`RiskGate`):
   - Pure mathematical authority holding **ZERO** `BrokerPort` references and **ZERO** LLM imports.
   - Validates 1% portfolio risk cap per trade (`settings.risk.max_position_pct`).
@@ -189,7 +189,7 @@ apex-quant/
 
 ---
 
-### 🔲 Step 6: Paper Execution & Immutable Audit Trail (Est: 1–2 Days)
+### 🟩 Step 6: [COMPLETED] Paper Execution & Immutable Audit Trail
 - [x] **6.1**: Implement `core/execution.py` (`ExecutionService`):
   - The **ONLY** module holding a reference to `BrokerPort`.
   - Accepts only `TradeIntent` paired with `RiskDecision.status == APPROVED`.
@@ -202,7 +202,7 @@ apex-quant/
 
 ---
 
-### 🔲 Step 7: Interface, API & OpenStock Terminal (Est: 2–3 Days)
+### 🟩 Step 7: [COMPLETED] Interface, API & OpenStock Terminal
 - [x] **7.1**: Implement `interface/api.py`:
   - Read-only REST and WebSocket endpoints for external frontends.
   - Strictly isolated: cannot trigger trades or inject signals.
@@ -361,3 +361,40 @@ apex-quant/
   - Multi-dimensional breakdown by Time-of-Day (Open/Midday/Close), Volatility Regimes, and Order Sizes.
   - Tuned `base_slippage` (7 bps) and `slippage_impact_factor` ($k=0.15$) in `config/settings.yaml` and `core/slippage.py`, achieving global execution error of $+0.51$ bps (well within institutional tolerance $\le 2.0$ bps).
 - [x] **13.3 Test Suite Verification**: **111 passed, 0 failed in 13.73s across all unit, contract, causality, and integrity tests**.
+
+---
+
+### 🟩 Step 14: [COMPLETED] Independent Code Audit Remediation & Out-of-Sample Portfolio Verification
+- [x] **14.1 Full Remediation of 33 Audit Findings (P0, P1, P2)**:
+  - **P0 Critical Remediations**:
+    - `StatutorySchedule` (`core/friction.py`): Authoritative Indian delivery & intraday statutory schedules (STT, Stamp Duty, Exchange Turnover, SEBI, 18% GST).
+    - Conservative stop-first rule on same-bar whipsaws (`hit_target and hit_stop`) in `core/backtest.py`.
+    - Gap-beyond-exit opening fill execution (`current_bar.open`) in `core/backtest.py`.
+    - Real-time forming candle causality filter `is_bar_closed()` in `adapters/data/yfinance_feed.py`.
+    - Sizing constraints for `max_notional_leverage` (1.0x cash delivery) and `max_adv_pct` (2% ADV cap) in `config/settings.yaml` and `core/risk.py`.
+    - True `day_start_equity` denominator for the 2% daily drawdown circuit breaker in `core/risk.py`.
+  - **P1 High Remediations**:
+    - Fixed EMA 50/200 spans and timeframe-aware annualization factors in `core/features.py`.
+    - Session-anchored vectorized VWAP and corrected momentum-20 indexing in `core/features.py`.
+    - Gaussian HMM EM training cache and volatility covariance state sorting in `core/regime.py`.
+    - Combinatorial cross-validation candidate matrix evaluation in `core/validation.py`.
+    - Signal decay data sufficiency assertion (`has_sufficient_data`) in `core/monitoring.py`.
+    - Circuit limit zero-volume tolerance and parameterized `allow_zero_volume: bool = False` in `core/ingestion.py`.
+    - Standardized options IV decimal representation in `core/options.py`.
+    - Sector concentration limit enforcement in `core/portfolio_risk.py`.
+    - Write-ahead audit persistence before broker dispatch in `core/execution.py` and `adapters/broker/paper_broker.py`.
+  - **P2 Medium Remediations**:
+    - Dynamic path search for Pine Script indicator in `interface/api.py`.
+    - CORS origin restriction to explicit localhost origins with credentials.
+    - Added `/ws/market/stream` WebSocket streaming endpoint.
+    - Kyle's lambda ADV parameterization in `core/slippage.py`.
+    - Implementation shortfall decomposition validation in `core/tca.py`.
+- [x] **14.2 Reproducible Multi-Asset Portfolio Simulation (`scripts/run_portfolio_backtest.py`)**:
+  - Full portfolio simulation over 23 liquid NSE equities yielding verified artifact `docs/portfolio_backtest_results.json`.
+  - Initial Capital: ₹2,300,000.00 | Final Capital: ₹2,364,016.29 | Gross PnL: ₹75,076.41 | Net PnL: ₹64,016.29 (+2.78%).
+  - Total Trades: 142 | Win Rate: 71.8% (102 W / 40 L) | Profit Factor: 4.07 | Daily MTM Sharpe: 7.34 | Max DD: -0.13% | CVaR (95% ES): 6.83%.
+  - Net Statutory & Slippage Retention: 85.3% after ₹11,060.12 in statutory friction and market impact.
+- [x] **14.3 Visual Documentation Synchronization**:
+  - Synchronized high-resolution dark-mode equity curve plot `assets/equity_curve.png` via `scripts/generate_equity_chart.py`.
+  - Aligned `README.md`, `docs/ARTICLE_WRITEUP.md`, and `docs/RESUME_BULLET_POINTS.md` with verified backtest metrics and direct artifact links.
+- [x] **14.4 Full Test Suite Verified**: **112 passed, 0 failed in 16.10s across all causality, contract, unit, and API tests**.
