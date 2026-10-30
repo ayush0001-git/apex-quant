@@ -68,7 +68,7 @@ Quant models are only as good as an analyst's ability to interpret and act on th
 
 ### Key Lessons & Takeaways
 
-1. **Architecture is not bureaucracy**: Clean separation of concerns allowed the entire 43-test suite to run in under 4 seconds in local and CI environments.
+1. **Architecture is not bureaucracy**: Clean separation of concerns allowed the entire 112-test suite to run in under 20 seconds in local and CI environments.
 2. **Honesty over hype**: Quant reviewers value known limitations, realistic friction models, and strict drawdown bounds infinitely more than unbacked superlatives.
 3. **Engineers must translate to business outcomes**: A quantitative terminal isn't just about Python code — it's about reducing manual screening time by 95%, guaranteeing 100% regulatory cost transparency, and mathematically eliminating catastrophic drawdowns.
 
@@ -76,6 +76,7 @@ Quant models are only as good as an analyst's ability to interpret and act on th
 
 ### Explore the Code
 * **GitHub Repository**: [https://github.com/ayush0001-git/apex-quant](https://github.com/ayush0001-git/apex-quant)
-* **Live Test Suite**: 43/43 Passing on GitHub Actions CI
+* **Live Test Suite**: 112/112 Passing on GitHub Actions CI
+* **Reproducible Portfolio Backtest**: Verified 142 trades with statutory friction & Kyle's lambda slippage in `docs/portfolio_backtest_results.json`
 * **Documentation**: Architecture Specifications, Data Integrity Pipeline, and ADRs included in `/docs`.
 

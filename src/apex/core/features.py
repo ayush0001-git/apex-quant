@@ -9,10 +9,11 @@ Enforces:
 5. Confluence scoring and MarketRegime classification.
 """
 from typing import Sequence
+import math
 import numpy as np
 import pandas as pd
 from ..domain.models import Bar, FeatureSnapshot
-from ..domain.enums import MarketRegime
+from ..domain.enums import MarketRegime, Timeframe
 from .ingestion import DataQualityError
 from .factors import FactorService
 from .regime import RegimeClassifier, GaussianHMMRegimeDetector
@@ -60,10 +61,10 @@ class FeatureService:
         volume = df["volume"]
         n = len(df)
 
-        # 1. EMAs
+        # 1. EMAs - fixed spans 20, 50, 200 without span shrinking (F8)
         ema20 = close.ewm(span=20, adjust=False).mean()
-        ema50 = close.ewm(span=min(50, n), adjust=False).mean()
-        ema200 = close.ewm(span=min(200, n), adjust=False).mean()
+        ema50 = close.ewm(span=50, adjust=False).mean()
+        ema200 = close.ewm(span=200, adjust=False).mean()
 
         # 2. RSI (14)
         delta = close.diff()
@@ -94,17 +95,34 @@ class FeatureService:
         vol_ratio = float(volume.iloc[-1] / (vol_sma20.iloc[-1] + 1e-10))
         vol_zscore = float((volume.iloc[-1] - vol_sma20.iloc[-1]) / (vol_std20.iloc[-1] + 1e-10))
 
-        # 5b. Momentum (20) & Realized Volatility (20)
-        mom20 = float(((close.iloc[-1] - close.iloc[max(0, n - 20)]) / (close.iloc[max(0, n - 20)] + 1e-10)) * 100.0) if n >= 20 else 0.0
+        # 5b. Momentum (20) & Realized Volatility (20) (F10, F30)
+        mom20 = float(((close.iloc[-1] - close.iloc[-21]) / (close.iloc[-21] + 1e-10)) * 100.0) if n >= 21 else 0.0
         log_rets = np.diff(np.log(close.iloc[-21:])) if n >= 21 else np.array([0.01])
         daily_std = float(np.std(log_rets, ddof=1)) if len(log_rets) > 1 else 0.015
-        realized_vol20 = float(daily_std * np.sqrt(252) * 100.0)
 
-        # 6. Anchored VWAP (calculated over current bar slice)
+        # Timeframe-aware volatility annualization (F10)
+        tf = getattr(bars[0], "timeframe", None)
+        if tf == Timeframe.M1:
+            ann_factor = math.sqrt(252 * 375)
+        elif tf == Timeframe.M5:
+            ann_factor = math.sqrt(252 * 75)
+        elif tf == Timeframe.M15:
+            ann_factor = math.sqrt(252 * 25)
+        elif tf == Timeframe.H1:
+            ann_factor = math.sqrt(252 * 6.25)
+        else:
+            ann_factor = math.sqrt(252)
+
+        realized_vol20 = float(daily_std * ann_factor * 100.0)
+
+        # 6. Session-Anchored VWAP (F19)
         typical_price = (high + low + close) / 3.0
-        cum_vp = (typical_price * volume).cumsum()
-        cum_vol = volume.cumsum()
-        vwap = cum_vp / (cum_vol + 1e-10)
+        df["tp_vol"] = typical_price * volume
+        df["session"] = pd.to_datetime(df["timestamp"]).dt.date
+        df["cum_vol"] = df.groupby("session")["volume"].cumsum()
+        df["cum_tp_vol"] = df.groupby("session")["tp_vol"].cumsum()
+        vwap_series = df["cum_tp_vol"] / (df["cum_vol"] + 1e-10)
+        c_vwap = float(vwap_series.iloc[-1])
 
         # Current snapshot values
         current_spot = float(close.iloc[-1])
@@ -113,7 +131,6 @@ class FeatureService:
         c_ema200 = float(ema200.iloc[-1])
         c_rsi = float(rsi14.iloc[-1])
         c_atr = float(atr14.iloc[-1])
-        c_vwap = float(vwap.iloc[-1])
         c_bb_upper = float(bb_upper.iloc[-1])
         c_bb_lower = float(bb_lower.iloc[-1])
         c_bb_width = float(bb_width.iloc[-1])
@@ -239,21 +256,6 @@ class FeatureService:
         return patterns
 
     @staticmethod
-    def _detect_regime(
-        spot: float, ema50: float, ema200: float, rsi: float, bb_width: float
-    ) -> MarketRegime:
-        if bb_width < 2.5:
-            return MarketRegime.RANGE_COMPRESSION
-
-        if spot > ema50 > ema200 and rsi >= 50.0:
-            return MarketRegime.BULL_EXPANSION
-
-        if spot < ema50 < ema200 and rsi <= 50.0:
-            return MarketRegime.BEAR_EXPANSION
-
-        return MarketRegime.VOLATILE_UNCONFIRMED
-
-    @staticmethod
     def _calculate_confluence(
         spot: float,
         ema50: float,
@@ -263,36 +265,40 @@ class FeatureService:
         vol_ratio: float,
         patterns: Sequence[str],
     ) -> float:
+        """Calculate bullish technical confluence score [0.0, 100.0] (F20, F30)."""
         score = 0.0
 
-        # Trend alignment (max 30 pts)
+        # 1. Bullish Trend alignment (max 30 pts)
         if spot > ema50 > ema200:
             score += 30.0
-        elif spot < ema50 < ema200:
-            score += 30.0  # directional clarity in downtrend is also confluence
         elif spot > ema50:
             score += 15.0
 
-        # VWAP positioning (max 20 pts)
+        # 2. VWAP positioning (max 20 pts)
         if abs(spot - vwap) / (spot + 1e-10) <= 0.005:  # within 0.5% of VWAP = high significance
             score += 20.0
-        elif (spot > vwap and spot > ema50) or (spot < vwap and spot < ema50):
+        elif spot > vwap and spot > ema50:
             score += 15.0
-
-        # RSI Momentum quality (max 20 pts)
-        if 40.0 <= rsi <= 65.0:
-            score += 20.0
-        elif 30.0 <= rsi <= 70.0:
+        elif spot > vwap:
             score += 10.0
 
-        # Volume expansion confirmation (max 15 pts)
+        # 3. RSI Momentum quality (max 20 pts)
+        if 45.0 <= rsi <= 65.0:
+            score += 20.0
+        elif 35.0 <= rsi <= 70.0:
+            score += 10.0
+
+        # 4. Volume expansion confirmation (max 15 pts)
         if vol_ratio >= 1.5:
             score += 15.0
         elif vol_ratio >= 1.0:
             score += 8.0
 
-        # Candlestick pattern presence (max 15 pts)
-        if patterns:
+        # 5. Bullish Candlestick pattern presence (max 15 pts)
+        bullish_patterns = {"BULLISH_ENGULFING", "HAMMER", "MORNING_STAR"}
+        if any(p in bullish_patterns for p in patterns):
             score += 15.0
+        elif any(p == "DOJI" for p in patterns):
+            score += 5.0
 
         return min(100.0, max(0.0, score))

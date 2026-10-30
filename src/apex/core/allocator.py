@@ -150,6 +150,6 @@ class MultiStrategyAllocator:
             correlation_matrix=corr_dict,
             effective_number_of_strategies=round(enc, 2),
             portfolio_expected_sharpe=port_sharpe,
-            rebalancing_needed=enc >= 1.5,
+            rebalancing_needed=enc < 1.5,
         )
 

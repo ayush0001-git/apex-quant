@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/core/ingestion.py
+# apex-quant/src/apex/core/ingestion.py
 """IngestionService: Strict normalization, causality enforcement, and quality gates."""
 from typing import Sequence
 from ..domain.models import Bar
@@ -13,14 +13,14 @@ class IngestionService:
     """The single data gatekeeper: enforces is_closed==True and data health."""
 
     @staticmethod
-    def validate_and_normalize(bars: Sequence[Bar]) -> Sequence[Bar]:
+    def validate_and_normalize(bars: Sequence[Bar], allow_zero_volume: bool = False) -> Sequence[Bar]:
         """Validate an OHLCV bar sequence.
         
         Enforces:
         1. Non-empty sequence
         2. Strict causality: Every bar must have is_closed == True
         3. Mathematical validity: High >= Open, Close, Low and Low <= Open, Close, High
-        4. Healthy volume: Volume must be strictly positive
+        4. Healthy volume: Volume must be strictly positive, unless circuit limit bar or allow_zero_volume is True
         5. Chronological order: Timestamps must be strictly ascending
         """
         if not bars:
@@ -43,11 +43,13 @@ class IngestionService:
                     f"Corrupt Bar at index {idx} ({bar.symbol}): High {bar.high} or Low {bar.low} is inconsistent with Open/Close."
                 )
 
-            # Volume health
+            # Volume health: tolerate zero-volume only on circuit limit bars (O==H==L==C) or when explicitly allowed
+            is_circuit_limit = (bar.high == bar.low == bar.open == bar.close)
             if bar.volume <= 0:
-                raise DataQualityError(
-                    f"Dead Market Bar at index {idx} ({bar.symbol}): Volume is {bar.volume}. Must be positive."
-                )
+                if not (allow_zero_volume or is_circuit_limit):
+                    raise DataQualityError(
+                        f"Dead Market Bar at index {idx} ({bar.symbol}): Volume is {bar.volume}. Must be positive."
+                    )
 
             # Chronological sequence
             if last_ts is not None and bar.timestamp <= last_ts:

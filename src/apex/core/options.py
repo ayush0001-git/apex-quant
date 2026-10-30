@@ -10,7 +10,7 @@ Resolves Roadmap Issue #2:
 5. Net Gamma Exposure (GEX): Quantifies market maker positioning & delta-hedging pressure.
 """
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 from typing import Dict, List, Mapping, Sequence, Tuple, Optional
 import numpy as np
@@ -128,19 +128,23 @@ class OptionsAnalyticsEngine:
         t_years: float,
         is_call: bool,
         r: float = ANNUAL_RISK_FREE_RATE,
+        as_percentage: bool = False,
     ) -> float:
-        """Solve for Implied Volatility using Newton-Raphson with bounded safeguards."""
+        """Solve for Implied Volatility using Newton-Raphson with bounded safeguards (F18).
+        
+        Returns decimal (e.g. 0.25) by default, or percentage (25.0) if as_percentage=True.
+        """
         intrinsic = max(0.0, spot - strike if is_call else strike - spot)
         if market_price <= intrinsic:
-            return 0.15  # Baseline minimal IV
+            return 15.0 if as_percentage else 0.15
 
         iv = 0.25  # Initial 25% guess
         for _ in range(25):
             price = cls.black_scholes_price(spot, strike, t_years, iv, is_call, r)
             diff = price - market_price
             if abs(diff) < 0.01:
-                return round(iv * 100.0, 2)
-            
+                return round(iv * 100.0, 2) if as_percentage else round(iv, 4)
+
             # Vega derivative
             d1 = (math.log(spot / strike) + (r + 0.5 * iv ** 2) * t_years) / (iv * math.sqrt(t_years) + 1e-8)
             vega = spot * stats.norm.pdf(d1) * math.sqrt(t_years)
@@ -149,7 +153,7 @@ class OptionsAnalyticsEngine:
             iv -= diff / vega
             iv = max(0.02, min(3.0, iv))
 
-        return round(iv * 100.0, 2)
+        return round(iv * 100.0, 2) if as_percentage else round(iv, 4)
 
     @classmethod
     def calculate_max_pain(
@@ -231,11 +235,12 @@ class OptionsAnalyticsEngine:
             # Market maker gamma contribution in INR
             net_gex += (c_greeks["gamma"] * c_oi - p_greeks["gamma"] * p_oi) * (spot ** 2) * 0.01
 
+            expiry_dt = datetime.now() + timedelta(days=max(1, int(t_years * 365)))
             contracts.append(
                 OptionContract(
                     strike=k,
                     option_type="CE",
-                    expiry=datetime.now(),
+                    expiry=expiry_dt,
                     ltp=round(c_price, 2),
                     implied_volatility_pct=round(iv * 100.0, 1),
                     delta=c_greeks["delta"],
@@ -250,7 +255,7 @@ class OptionsAnalyticsEngine:
                 OptionContract(
                     strike=k,
                     option_type="PE",
-                    expiry=datetime.now(),
+                    expiry=expiry_dt,
                     ltp=round(p_price, 2),
                     implied_volatility_pct=round(iv * 100.0, 1),
                     delta=p_greeks["delta"],

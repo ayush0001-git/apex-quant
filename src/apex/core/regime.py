@@ -13,11 +13,14 @@ Implements institutional regime-detection models:
 from dataclasses import dataclass
 import math
 from typing import Sequence, Tuple, Optional, Dict, Any, List
+import warnings
 import numpy as np
 import pandas as pd
 from ..domain.models import Bar
 from ..domain.enums import MarketRegime
 from .ingestion import DataQualityError
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 try:
     from hmmlearn.hmm import GaussianHMM
@@ -45,6 +48,14 @@ class GaussianHMMRegimeDetector:
         1: "RANGE_COMPRESSION_MEAN_REVERTING",
         2: "HIGH_VOLATILITY_TURBULENCE",
     }
+
+    # Model cache: symbol -> (bar_count, fitted_model, sorted_indices, persistence, bic)
+    _model_cache: Dict[str, Tuple[int, Any, List[int], float, float]] = {}
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear cached HMM models."""
+        cls._model_cache.clear()
 
     @staticmethod
     def _extract_multi_features(bars: Sequence[Bar]) -> np.ndarray:
@@ -109,30 +120,37 @@ class GaussianHMMRegimeDetector:
             )
 
         X = cls._extract_multi_features(bars)
+        sym = bars[0].symbol if bars else "DEFAULT"
 
         if HMMLEARN_AVAILABLE and len(X) >= 25:
             try:
-                model = GaussianHMM(
-                    n_components=3,
-                    covariance_type="diag",
-                    n_iter=80,
-                    random_state=42,
-                    init_params="stmc",
-                )
-                model.fit(X)
-                posteriors = model.predict_proba(X)[-1]
-                bic = cls.calculate_bic(model, X)
+                cached = cls._model_cache.get(sym)
+                # Refit only if no cache exists or if >= 30 bars have arrived (F9)
+                if cached is not None and (len(X) - cached[0] < 30):
+                    _, model, sorted_indices, persistence, bic = cached
+                    posteriors = model.predict_proba(X)[-1]
+                else:
+                    model = GaussianHMM(
+                        n_components=3,
+                        covariance_type="diag",
+                        n_iter=50,
+                        random_state=42,
+                        init_params="stmc",
+                    )
+                    model.fit(X)
+                    posteriors = model.predict_proba(X)[-1]
+                    bic = cls.calculate_bic(model, X)
 
-                # Order states by volatility dimension (column 1 = roll_vol)
-                vol_means = [cov[1] for cov in model.covars_]
-                sorted_indices = np.argsort(vol_means)
+                    # Order states deterministically by volatility dimension (column 1 = roll_vol)
+                    vol_means = [cov[1] for cov in model.covars_]
+                    sorted_indices = list(np.argsort(vol_means))
+
+                    trans = model.transmat_
+                    persistence = float(np.mean(np.diag(trans)))
+                    cls._model_cache[sym] = (len(X), model, sorted_indices, persistence, bic)
 
                 reordered_probs = [float(posteriors[idx]) for idx in sorted_indices]
                 current_state = int(np.argmax(reordered_probs))
-
-                # Transition persistence: mean of diagonal transition probabilities
-                trans = model.transmat_
-                persistence = float(np.mean(np.diag(trans)))
 
                 # Volatility gate scaled by turbulence state probability
                 vol_gate = float(max(0.2, 1.0 - (0.7 * reordered_probs[2])))

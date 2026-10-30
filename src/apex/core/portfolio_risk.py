@@ -49,6 +49,8 @@ class PortfolioRiskReport:
     is_var_approved: bool              # Passes max_portfolio_var_pct hurdle
     is_cvar_approved: bool             # Passes max_portfolio_cvar_pct hurdle
     is_correlation_approved: bool      # Passes max_asset_correlation hurdle
+    is_sector_approved: bool = True    # Passes max_sector_exposure_pct hurdle
+    max_sector_exposure_pct: float = 0.0
     rejection_reason: Optional[str] = None
 
 
@@ -288,6 +290,17 @@ class PortfolioRiskEngine:
                 )
             )
 
+        # 4b. Sector Concentration Cap Check (F17)
+        sector_allocations: Dict[str, float] = {}
+        for sym, alloc in positions.items():
+            clean_sym = sym if sym in self.SECTOR_MAP else f"{sym}.NS" if f"{sym}.NS" in self.SECTOR_MAP else sym
+            sec = self.SECTOR_MAP.get(clean_sym, "OTHER")
+            sector_allocations[sec] = sector_allocations.get(sec, 0.0) + alloc
+
+        max_sec_exposure = max((val / total_equity for val in sector_allocations.values()), default=0.0)
+        worst_sector = max(sector_allocations.keys(), key=lambda s: sector_allocations[s]) if sector_allocations else "NONE"
+        is_sector_ok = max_sec_exposure <= self.max_sector_exposure
+
         # 5. Gate checks
         is_var_ok = (var_95 / 100.0) <= self.max_var_pct
         is_cvar_ok = (mc_cvar_95 / 100.0) <= self.max_cvar_pct
@@ -300,6 +313,8 @@ class PortfolioRiskEngine:
             rejection_reasons.append(f"Expected Shortfall CVaR ({mc_cvar_95:.2f}%) exceeds {self.max_cvar_pct*100:.1f}% limit")
         if not is_corr_ok:
             rejection_reasons.append(f"High correlation between {corr_pair[0]} & {corr_pair[1]} ({max_corr:.2f} > {self.max_correlation:.2f})")
+        if not is_sector_ok:
+            rejection_reasons.append(f"Sector exposure for {worst_sector} ({max_sec_exposure*100:.1f}%) exceeds {self.max_sector_exposure*100:.1f}% limit")
 
         return PortfolioRiskReport(
             total_portfolio_equity=total_equity,
@@ -316,6 +331,8 @@ class PortfolioRiskEngine:
             is_var_approved=is_var_ok,
             is_cvar_approved=is_cvar_ok,
             is_correlation_approved=is_corr_ok,
+            is_sector_approved=is_sector_ok,
+            max_sector_exposure_pct=round(max_sec_exposure * 100.0, 2),
             rejection_reason="; ".join(rejection_reasons) if rejection_reasons else None,
         )
 

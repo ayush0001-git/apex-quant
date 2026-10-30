@@ -69,19 +69,27 @@ class PnLAttributionEngine:
     def attribute_pnl(
         cls,
         daily_records: Sequence[DailyPnLAttribution],
+        walk_forward_windows: Optional[Sequence[WalkForwardWindow]] = None,
     ) -> AttributionReport:
-        """Aggregate daily component attributions into portfolio-level telemetry."""
+        """Aggregate daily component attributions into portfolio-level telemetry (F6)."""
+        wf_windows = tuple(walk_forward_windows) if walk_forward_windows else ()
+        mean_oos = (
+            round(float(np.mean([w.out_of_sample_sharpe for w in wf_windows])), 2)
+            if wf_windows
+            else 0.0
+        )
+
         if not daily_records:
             return AttributionReport(
                 total_pnl_inr=0.0,
                 total_friction_inr=0.0,
-                ta_signal_pct=40.0,
-                factor_alpha_pct=30.0,
-                regime_timing_pct=20.0,
-                options_gex_pct=10.0,
+                ta_signal_pct=0.0,
+                factor_alpha_pct=0.0,
+                regime_timing_pct=0.0,
+                options_gex_pct=0.0,
                 llm_throttle_value_add_inr=0.0,
-                walk_forward_windows=(),
-                mean_out_of_sample_sharpe=0.0,
+                walk_forward_windows=wf_windows,
+                mean_out_of_sample_sharpe=mean_oos,
                 is_alpha_diversified=True,
             )
 
@@ -111,8 +119,8 @@ class PnLAttributionEngine:
             regime_timing_pct=regime_pct,
             options_gex_pct=options_pct,
             llm_throttle_value_add_inr=round(llm_savings, 2),
-            walk_forward_windows=(),
-            mean_out_of_sample_sharpe=1.85,
+            walk_forward_windows=wf_windows,
+            mean_out_of_sample_sharpe=mean_oos,
             is_alpha_diversified=is_diversified,
         )
 

@@ -32,8 +32,12 @@ def test_options_implied_volatility_solver():
     known_iv = 0.22
     
     market_price = engine.black_scholes_price(spot, strike, t_years, known_iv, is_call=True)
-    solved_iv_pct = engine.solve_implied_volatility(market_price, spot, strike, t_years, is_call=True)
-    
+    # Standard decimal return (F18)
+    solved_iv_decimal = engine.solve_implied_volatility(market_price, spot, strike, t_years, is_call=True)
+    assert abs(solved_iv_decimal - known_iv) < 0.005
+
+    # Explicit percentage return
+    solved_iv_pct = engine.solve_implied_volatility(market_price, spot, strike, t_years, is_call=True, as_percentage=True)
     assert abs(solved_iv_pct - (known_iv * 100.0)) < 0.5
 
 

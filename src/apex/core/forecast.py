@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/core/forecast.py
+# apex-quant/src/apex/core/forecast.py
 """ForecastService: Probabilistic forecast wrapper for Kronos.
 
 Enforces:
@@ -46,8 +46,11 @@ class ForecastService:
         mean_return = np.mean(returns[-20:])
         volatility = np.std(returns[-20:]) + 1e-6
 
-        # Average true range for wick expansion
-        tr = np.maximum(highs - lows, np.maximum(np.abs(highs - np.roll(closes, 1)), np.abs(lows - np.roll(closes, 1))))
+        # Average true range for wick expansion without future wrap-around (F31)
+        prev_closes = np.empty_like(closes)
+        prev_closes[0] = closes[0]
+        prev_closes[1:] = closes[:-1]
+        tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_closes), np.abs(lows - prev_closes)))
         atr = np.mean(tr[-14:])
 
         # Directional probability from drift and momentum

@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/adapters/broker/paper_broker.py
+# apex-quant/src/apex/adapters/broker/paper_broker.py
 """PaperBroker: Simulates order fills with realistic slippage. Zero live capital."""
 import uuid
 from datetime import datetime, timezone
@@ -51,7 +51,24 @@ class PaperBroker(BrokerPort):
         }
 
         self.orders.append(order_record)
-        self.positions[intent.symbol] = order_record
+
+        # Position tracking and aggregation (F21)
+        sym = intent.symbol
+        new_qty = float(risk.position_size or 0.0)
+        if sym in self.positions and self.positions[sym].get("direction") == direction.value:
+            existing = self.positions[sym]
+            old_qty = float(existing.get("quantity", 0.0))
+            tot_qty = old_qty + new_qty
+            avg_price = round(((existing.get("fill_price", fill_price) * old_qty) + (fill_price * new_qty)) / (tot_qty + 1e-8), 2)
+            self.positions[sym] = {
+                **existing,
+                "quantity": tot_qty,
+                "fill_price": avg_price,
+                "last_order_id": order_id,
+                "timestamp": order_record["timestamp"],
+            }
+        else:
+            self.positions[sym] = dict(order_record)
 
         return order_record
 

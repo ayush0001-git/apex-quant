@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Sequence, List, Mapping, Any, Optional
+import numpy as np
 from ..domain.models import Bar, TradeIntent, RiskDecision, DebateResult
 from ..domain.enums import Direction, GateStatus, Timeframe
 from .features import FeatureService
@@ -20,6 +21,8 @@ from .risk import RiskGate
 from ..domain.config import Settings
 from .slippage import DynamicSlippageModel
 from .validation import InstitutionalValidator
+from .friction import StatutorySchedule
+from .ingestion import IngestionService
 
 
 @dataclass(frozen=True)
@@ -83,30 +86,19 @@ class BacktestEngine:
         turnover: float,
         shares: float,
         is_buy: bool,
+        is_delivery: bool = True,
         volume_ratio: float = 1.0,
         volatility_pct: float = 0.015,
         spot_price: float = 0.0,
     ) -> float:
-        """Calculates precise statutory transaction costs and dynamic execution slippage."""
-        # Brokerage: flat ₹20 or 0.05%
-        brokerage = min(20.0, turnover * 0.0005)
-        
-        # STT: 0.1% on delivery (both legs) or 0.025% on intraday sell
-        stt = turnover * 0.001 if is_buy else turnover * 0.00025
-        
-        # Exchange turnover charges: NSE 0.00325%
-        exchange_charges = turnover * 0.0000325
-        
-        # GST: 18% on (brokerage + exchange charges)
-        gst = (brokerage + exchange_charges) * 0.18
-        
-        # SEBI turnover charge: ₹10 per crore (0.0001%)
-        sebi_charges = turnover * 0.000001
-        
-        # Stamp duty: 0.015% on buy order turnover
-        stamp_duty = turnover * 0.00015 if is_buy else 0.0
-        
-        # Dynamic Market Slippage (Kyle's lambda & volume/volatility conditioned)
+        """Calculates precise statutory transaction costs and dynamic execution slippage (F4)."""
+        statutory = StatutorySchedule.calculate_statutory_friction(
+            turnover=turnover,
+            shares=shares,
+            is_buy=is_buy,
+            is_delivery=is_delivery,
+            brokerage_per_order=self.settings.friction.brokerage_per_order,
+        )
         effective_spot = spot_price or (turnover / (shares + 1e-8))
         slippage_quote = self.slippage_model.estimate_slippage(
             turnover=turnover,
@@ -115,17 +107,18 @@ class BacktestEngine:
             volume_ratio=volume_ratio,
             volatility_pct=volatility_pct,
         )
-        slippage = slippage_quote.slippage_inr
-        
-        return round(brokerage + stt + exchange_charges + gst + sebi_charges + stamp_duty + slippage, 2)
+        return round(statutory + slippage_quote.slippage_inr, 2)
 
     def run(
         self,
         bars: Sequence[Bar],
         initial_capital: float = 100000.0,
         warmup_bars: int = 30,
+        is_delivery: bool = True,
     ) -> BacktestSummary:
-        """Execute strict bar-by-bar simulation over closed historical candles."""
+        """Execute strict bar-by-bar simulation over closed historical candles (F2, F3, F11, F12)."""
+        # Validate bars for causality and integrity (F3)
+        bars = IngestionService.validate_and_normalize(bars, allow_zero_volume=True)
         if len(bars) <= warmup_bars:
             raise ValueError(f"Insufficient bars for backtest: need > {warmup_bars}, received {len(bars)}")
 
@@ -151,11 +144,27 @@ class BacktestEngine:
 
                 if hit_target or hit_stop:
                     trade_counter += 1
-                    exit_price = pos["target"] if hit_target else pos["stop"]
-                    exit_reason = "TARGET_HIT" if hit_target else "STOP_LOSS_HIT"
+
+                    # Gap openings take priority
+                    if current_bar.open <= pos["stop"]:
+                        exit_price = current_bar.open
+                        exit_reason = "STOP_LOSS_HIT"
+                    elif current_bar.open >= pos["target"]:
+                        exit_price = current_bar.open
+                        exit_reason = "TARGET_HIT"
+                    elif hit_target and hit_stop:
+                        # Whipsaw bar: enforce conservative stop-first rule (F2)
+                        exit_price = pos["stop"]
+                        exit_reason = "STOP_LOSS_HIT"
+                    elif hit_target:
+                        exit_price = pos["target"]
+                        exit_reason = "TARGET_HIT"
+                    else:
+                        exit_price = pos["stop"]
+                        exit_reason = "STOP_LOSS_HIT"
                     
                     sell_turnover = exit_price * pos["shares"]
-                    exit_friction = self.calculate_statutory_friction(sell_turnover, pos["shares"], is_buy=False)
+                    exit_friction = self.calculate_statutory_friction(sell_turnover, pos["shares"], is_buy=False, is_delivery=is_delivery)
                     total_trade_friction = pos["entry_friction"] + exit_friction
 
                     gross_pnl = (exit_price - pos["entry_price"]) * pos["shares"]
@@ -163,7 +172,6 @@ class BacktestEngine:
                     ret_pct = (net_pnl / (pos["entry_price"] * pos["shares"])) * 100.0
 
                     current_capital += net_pnl
-                    equity_curve.append(current_capital)
 
                     # Update drawdown
                     if current_capital > peak_capital:
@@ -193,54 +201,58 @@ class BacktestEngine:
                     )
                     active_position = None
                 else:
-                    equity_curve.append(current_capital)
-                    continue
+                    # No exit on this bar
+                    pass
 
             # 2. If no position, evaluate signals strictly on historical bars[:t]
-            try:
-                features_snapshot = self.features.compute(history_window)
-                forecast_snapshot = self.forecast.generate_forecast(history_window, horizon_bars=12)
+            if active_position is None:
+                try:
+                    features_snapshot = self.features.compute(history_window)
+                    forecast_snapshot = self.forecast.generate_forecast(history_window, horizon_bars=12)
 
-                # Simulated Debate (neutral consensus fallback for offline backtest)
-                synth_action = Direction.LONG if features_snapshot.confluence_score >= 55.0 and forecast_snapshot.directional_prob >= 0.52 else Direction.HOLD
-                debate = DebateResult(
-                    action=synth_action,
-                    conviction=int(features_snapshot.confluence_score),
-                    entry_zone=(features_snapshot.spot_price, features_snapshot.spot_price),
-                    stop_loss=features_snapshot.spot_price - (1.5 * features_snapshot.indicators.get("atr_14", 10.0)),
-                    targets=(features_snapshot.spot_price + (3.0 * features_snapshot.indicators.get("atr_14", 10.0)),),
-                    reasoning_hash="backtest_sim",
-                )
-
-                intent = self.decision.evaluate(features_snapshot, forecast_snapshot, debate)
-                risk_decision = self.risk.evaluate(intent, portfolio_equity=current_capital)
-
-                if risk_decision.status == GateStatus.APPROVED and intent.direction == Direction.LONG:
-                    shares = risk_decision.position_size or 10.0
-                    entry_price = current_bar.close
-                    buy_turnover = entry_price * shares
-                    entry_friction = self.calculate_statutory_friction(
-                        buy_turnover,
-                        shares,
-                        is_buy=True,
-                        volume_ratio=features_snapshot.volume_ratio,
-                        spot_price=entry_price,
+                    # Simulated Debate (neutral consensus fallback for offline backtest)
+                    synth_action = Direction.LONG if features_snapshot.confluence_score >= 55.0 and forecast_snapshot.directional_prob >= 0.52 else Direction.HOLD
+                    debate = DebateResult(
+                        action=synth_action,
+                        conviction=int(features_snapshot.confluence_score),
+                        entry_zone=(features_snapshot.spot_price, features_snapshot.spot_price),
+                        stop_loss=features_snapshot.spot_price - (1.5 * features_snapshot.indicators.get("atr_14", 10.0)),
+                        targets=(features_snapshot.spot_price + (3.0 * features_snapshot.indicators.get("atr_14", 10.0)),),
+                        reasoning_hash="backtest_sim",
                     )
 
-                    active_position = {
-                        "symbol": current_bar.symbol,
-                        "direction": intent.direction,
-                        "entry_time": current_bar.timestamp,
-                        "entry_price": entry_price,
-                        "stop": intent.stop,
-                        "target": intent.targets[0] if intent.targets else entry_price * 1.05,
-                        "shares": shares,
-                        "entry_friction": entry_friction,
-                    }
-            except Exception:
-                pass
+                    intent = self.decision.evaluate(features_snapshot, forecast_snapshot, debate)
+                    risk_decision = self.risk.evaluate(intent, portfolio_equity=current_capital, is_delivery=is_delivery)
 
-            equity_curve.append(current_capital)
+                    if risk_decision.status == GateStatus.APPROVED and intent.direction == Direction.LONG:
+                        shares = risk_decision.position_size or 10.0
+                        entry_price = current_bar.close
+                        buy_turnover = entry_price * shares
+                        entry_friction = self.calculate_statutory_friction(
+                            buy_turnover,
+                            shares,
+                            is_buy=True,
+                            is_delivery=is_delivery,
+                            volume_ratio=features_snapshot.volume_ratio,
+                            spot_price=entry_price,
+                        )
+
+                        active_position = {
+                            "symbol": current_bar.symbol,
+                            "direction": intent.direction,
+                            "entry_time": current_bar.timestamp,
+                            "entry_price": entry_price,
+                            "stop": intent.stop,
+                            "target": intent.targets[0] if intent.targets else entry_price * 1.05,
+                            "shares": shares,
+                            "entry_friction": entry_friction,
+                        }
+                except (ValueError, KeyError):
+                    # Expected data initialization gaps during initial history slices
+                    pass
+
+            # Append to equity curve exactly ONCE per bar (F11)
+            equity_curve.append(round(current_capital, 2))
 
         # Performance Metrics Compilation
         total_trades = len(trades)
@@ -257,24 +269,31 @@ class BacktestEngine:
         gross_loss = abs(sum(t.gross_pnl for t in trades if t.gross_pnl < 0))
         profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (99.0 if gross_profit > 0 else 0.0)
 
-        # Approximate annualized Sharpe Ratio from trade returns
-        if total_trades >= 3:
-            returns = [t.return_pct for t in trades]
-            mean_ret = sum(returns) / len(returns)
-            variance = sum((r - mean_ret) ** 2 for r in returns) / len(returns)
-            std_dev = math.sqrt(variance) if variance > 0 else 1.0
-            sharpe_ratio = round((mean_ret / std_dev) * math.sqrt(252 / max(1, len(bars) / 25)), 2)
+        # Compute Sharpe Ratio from daily Mark-to-Market (MTM) returns (F11)
+        if len(equity_curve) >= 2:
+            eq_arr = np.array(equity_curve, dtype=float)
+            daily_returns = np.diff(eq_arr) / (eq_arr[:-1] + 1e-8)
+            mean_ret = float(np.mean(daily_returns))
+            std_ret = float(np.std(daily_returns, ddof=1)) if len(daily_returns) > 1 else 1e-6
+            if std_ret > 1e-8:
+                sharpe_ratio = round((mean_ret / std_ret) * math.sqrt(252), 2)
+            else:
+                sharpe_ratio = 0.0
         else:
             sharpe_ratio = 0.0
 
-        # Institutional validation metrics: DSR, PBO, and CVaR
+        # Institutional validation metrics: DSR, PBO, and true 95% CVaR (F12)
         if total_trades >= 5:
-            returns = [t.return_pct for t in trades]
-            val_report = InstitutionalValidator.evaluate_strategy_integrity(returns)
+            trade_returns = [t.return_pct for t in trades]
+            val_report = InstitutionalValidator.evaluate_strategy_integrity(trade_returns)
             dsr = val_report.deflated_sharpe_ratio
             pbo = val_report.probability_of_overfitting
-            neg_returns = [r for r in returns if r < 0]
-            cvar = round(abs(float(sum(neg_returns) / len(neg_returns))), 2) if neg_returns else 0.0
+            
+            # True 95% CVaR (Expected Shortfall): average of returns in bottom 5% tail
+            rets_arr = np.array(trade_returns)
+            cutoff_5pct = np.percentile(rets_arr, 5)
+            tail_losses = rets_arr[rets_arr <= cutoff_5pct]
+            cvar = round(abs(float(np.mean(tail_losses))), 2) if len(tail_losses) > 0 else 0.0
         else:
             dsr = 0.0
             pbo = 0.0

@@ -7,3 +7,4 @@ This directory contains visual documentation and performance proofs for the Apex
 - `swagger_docs.png`: Self-documenting FastAPI REST & WebSocket endpoint catalog.
 - `terminal_preview.png`: High-resolution dark-mode terminal layout preview.
 - `social_preview.png`: OpenGraph and repository preview banner.
+

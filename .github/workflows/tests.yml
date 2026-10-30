@@ -36,3 +36,7 @@ jobs:
     - name: Run TCA Calibration Script
       run: |
         python scripts/run_tca.py
+
+    - name: Run Portfolio Backtest Verification
+      run: |
+        python scripts/run_portfolio_backtest.py

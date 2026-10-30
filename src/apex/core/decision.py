@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/core/decision.py
+# apex-quant/src/apex/core/decision.py
 """DecisionEngine: The ONLY authoritative decision aggregation point in the system.
 
 Enforces:
@@ -45,12 +45,18 @@ class DecisionEngine:
                 ),
             )
 
-        # Sanity check: Ensure proposed trade does not directly contradict strong regime
+        # Sanity check: Ensure proposed trade does not directly contradict strong regime (F20)
         direction = debate.action
-        if direction == Direction.LONG and "BEAR_EXPANSION" in features.regime.value and features.confluence_score < 75.0:
-            direction = Direction.HOLD
-        elif direction == Direction.SHORT and "BULL_EXPANSION" in features.regime.value and features.confluence_score < 75.0:
-            direction = Direction.HOLD
+        ema50 = features.indicators.get("ema_50", spot)
+        if direction == Direction.LONG:
+            if "BEAR_EXPANSION" in features.regime.value:
+                # Disallow counter-trend longs in bear expansion when spot is below EMA50 or confluence is modest
+                if spot <= ema50 or features.confluence_score < 80.0:
+                    direction = Direction.HOLD
+        elif direction == Direction.SHORT:
+            if "BULL_EXPANSION" in features.regime.value:
+                if spot >= ema50 or features.confluence_score < 80.0:
+                    direction = Direction.HOLD
 
         if direction == Direction.HOLD:
             return TradeIntent(

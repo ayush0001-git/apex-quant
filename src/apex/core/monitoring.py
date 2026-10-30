@@ -38,6 +38,7 @@ class SignalDecayReport:
     mean_historical_ic: float
     ic_t_stat: float
     is_signal_decayed: bool         # IC < 0.0 indicates edge decay
+    has_sufficient_data: bool = True # False when sample size < 8 observations
 
 
 @dataclass(frozen=True)
@@ -120,18 +121,21 @@ class MonitoringEngine:
     def calculate_rolling_ic(
         signals: Sequence[float],
         realized_forward_returns: Sequence[float],
+        historical_ic_benchmark: float = 0.0,
     ) -> SignalDecayReport:
-        """Compute Spearman Rank Information Coefficient (IC) to measure alpha decay."""
+        """Compute Spearman Rank Information Coefficient (IC) to measure alpha decay (F14)."""
         sig = np.array(signals)
         rets = np.array(realized_forward_returns)
 
+        # Insufficient data: report has_sufficient_data=False and 0.0 metrics rather than fabricated numbers
         if len(sig) < 8 or len(rets) < 8:
             return SignalDecayReport(
                 signal_name="COMPOSITE_ALPHA",
-                current_rolling_ic=0.08,
-                mean_historical_ic=0.08,
-                ic_t_stat=1.8,
+                current_rolling_ic=0.0,
+                mean_historical_ic=0.0,
+                ic_t_stat=0.0,
                 is_signal_decayed=False,
+                has_sufficient_data=False,
             )
 
         # Spearman rank correlation
@@ -147,9 +151,10 @@ class MonitoringEngine:
         return SignalDecayReport(
             signal_name="COMPOSITE_ALPHA",
             current_rolling_ic=round(float(rho), 3),
-            mean_historical_ic=0.065,
+            mean_historical_ic=round(float(historical_ic_benchmark or rho), 3),
             ic_t_stat=round(float(t_stat), 2),
             is_signal_decayed=is_decayed,
+            has_sufficient_data=True,
         )
 
     @staticmethod

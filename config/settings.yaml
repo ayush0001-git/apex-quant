@@ -16,14 +16,20 @@ risk:
   max_asset_correlation: 0.70
   max_sector_exposure_pct: 0.25
   llm_defensive_throttle: true
+  max_notional_leverage: 1.0
+  max_adv_pct: 0.02
 
 friction:
   brokerage_per_order: 20.0
-  stt_intraday_pct: 0.0002
+  stt_intraday_pct: 0.00025
+  stt_delivery_buy_pct: 0.0010
+  stt_delivery_sell_pct: 0.0010
   gst_pct: 0.18
   exchange_turnover_pct: 0.0000325
   sebi_turnover_pct: 0.000001
-  stamp_duty_pct: 0.00003
+  stamp_duty_pct: 0.00015
+  stamp_duty_delivery_pct: 0.00015
+  stamp_duty_intraday_pct: 0.00003
   default_slippage_pct: 0.0007
   min_slippage_pct: 0.0002
   max_slippage_pct: 0.0050

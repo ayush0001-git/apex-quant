@@ -1,4 +1,4 @@
-﻿# apex-quant/src/apex/core/execution.py
+# apex-quant/src/apex/core/execution.py
 """ExecutionService: The ONLY module permitted to hold a BrokerPort reference.
 
 Strict single-ownership rules:
@@ -51,10 +51,7 @@ class ExecutionService:
                 "audit_id": audit_id,
             }
 
-        # Submit to broker
-        order_result = await self.broker.submit_intent(intent, risk)
-
-        # Create immutable audit record
+        # Write-Ahead Audit Record (F21: persist intent before broker dispatch)
         audit_id = f"AUDIT_{uuid.uuid4().hex[:12].upper()}"
         record = AuditRecord(
             audit_id=audit_id,
@@ -65,6 +62,17 @@ class ExecutionService:
             risk=risk,
         )
         await self.storage.save_audit(record)
+
+        # Submit to broker with write-ahead protection
+        try:
+            order_result = await self.broker.submit_intent(intent, risk)
+        except Exception as exc:
+            return {
+                "order_id": None,
+                "status": "BROKER_SUBMISSION_FAILED",
+                "error": str(exc),
+                "audit_id": audit_id,
+            }
 
         return {
             **order_result,

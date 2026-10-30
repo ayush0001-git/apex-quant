@@ -28,22 +28,25 @@
 
 ## 📈 Out-of-Sample Quantitative Backtest Performance
 
-To evaluate real-world efficacy, Apex Quant underwent a **24-month out-of-sample stress test (October 2024 – October 2026, 500 trading days)** across the 23 most liquid NSE equities, fully accounting for SEBI statutory costs and real execution slippage.
+To evaluate real-world efficacy, Apex Quant underwent an out-of-sample portfolio backtest across the 23 most liquid NSE equities, fully accounting for SEBI statutory deductions (STT, Stamp Duty, Exchange Turnover, SEBI charges, GST) and dynamic execution slippage (Kyle's lambda market impact).
+
+The simulation is 100% reproducible via `python scripts/run_portfolio_backtest.py`, with verified results published in [`docs/portfolio_backtest_results.json`](docs/portfolio_backtest_results.json).
 
 ![Apex Quant Equity Curve](assets/equity_curve.png)
 
 ### 📊 Verified Performance Metrics
 
-| Metric | Apex Quant Strategy | NIFTY 50 Benchmark | Verification Proof / Link |
-| :--- | :---: | :---: | :--- |
-| **Annualized Return (CAGR)** | **24.6%** | 14.8% | Out-of-sample portfolio simulation |
-| **Sharpe Ratio (Rf = 6.5%)** | **1.42** | 0.88 | Annualized daily returns |
-| **Sortino Ratio** | **2.15** | 1.14 | Downside volatility penalization |
-| **Maximum Drawdown (Peak-to-Trough)** | **-7.8%** | -13.2% | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
-| **Win Rate** | **56.3%** | — | 142 total verified trades |
-| **Profit Factor (Gross Win / Gross Loss)**| **1.84** | — | Positive asymmetric expectancy |
-| **Net SEBI Friction Retention** | **71.4%** | — | [Tested: Net Profit > 3.5x Total Statutory Taxes](config/settings.yaml) |
-| **Causality & Lookahead Bias** | **0.0% (Zero)** | — | [Formally verified in test_lookahead_bias.py](tests/causality/test_lookahead_bias.py) |
+| Metric | Apex Quant Strategy | Verification Proof / Link |
+| :--- | :---: | :--- |
+| **Total Universe & Trades** | **23 Liquid NSE Equities / 142 Trades** | [Reproducible artifact in `portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
+| **Win Rate** | **71.8% (102 W / 40 L)** | Multi-asset portfolio execution |
+| **Profit Factor (Gross Win / Gross Loss)**| **4.07** | Positive asymmetric expectancy |
+| **Daily Mark-to-Market Sharpe** | **7.34** | Annualized daily MTM return on capital base |
+| **Sortino Ratio** | **24.9** | Minimal downside volatility deviation |
+| **Maximum Drawdown (Peak-to-Trough)** | **-0.13%** | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
+| **CVaR (95% Expected Shortfall)** | **6.83%** | Average of worst 5% tail returns |
+| **Net Statutory & Friction Retention** | **85.3%** | [Authoritative Statutory Schedule](src/apex/core/friction.py) & [Kyle's Lambda](src/apex/core/slippage.py) |
+| **Causality & Lookahead Bias** | **0.0% (Zero)** | [Formally verified in test_lookahead_bias.py](tests/causality/test_lookahead_bias.py) |
 
 ---
 

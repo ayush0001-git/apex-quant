@@ -1,4 +1,4 @@
-﻿# apex-quant/tests/unit/test_ingestion.py
+# apex-quant/tests/unit/test_ingestion.py
 """Unit tests for IngestionService validation and causality filters."""
 from datetime import datetime, timedelta
 import pytest
@@ -39,3 +39,21 @@ def test_ingestion_rejects_zero_volume():
     bars = [make_valid_bar(0), make_valid_bar(1, volume=0.0)]
     with pytest.raises(DataQualityError, match="Dead Market Bar"):
         IngestionService.validate_and_normalize(bars)
+
+
+def test_ingestion_accepts_circuit_limit_zero_volume():
+    """Circuit limit bars (open == high == low == close) with volume=0 should be accepted."""
+    ts = datetime(2026, 10, 23, 10, 0)
+    circuit_bar = Bar(
+        symbol="NIFTY.NS",
+        timeframe=Timeframe.M15,
+        timestamp=ts,
+        open=25000.0,
+        high=25000.0,
+        low=25000.0,
+        close=25000.0,
+        volume=0.0,
+        is_closed=True,
+    )
+    validated = IngestionService.validate_and_normalize([circuit_bar])
+    assert len(validated) == 1

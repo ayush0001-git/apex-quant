@@ -16,6 +16,7 @@ from ..domain.enums import Direction, GateStatus, KillReason
 from ..domain.config import Settings
 from .slippage import DynamicSlippageModel
 from .portfolio_risk import PortfolioRiskEngine, PortfolioRiskReport
+from .friction import StatutorySchedule
 
 
 class RiskGate:
@@ -37,6 +38,8 @@ class RiskGate:
         portfolio_equity: float,
         daily_pnl: float = 0.0,
         consecutive_losses: int = 0,
+        day_start_equity: Optional[float] = None,
+        is_delivery: bool = True,
     ) -> RiskDecision:
         # 1. HOLD intent check
         if intent.direction == Direction.HOLD:
@@ -62,7 +65,9 @@ class RiskGate:
                 estimated_statutory_friction=0.0,
             )
 
-        daily_loss_pct = abs(min(0.0, daily_pnl)) / portfolio_equity
+        # Use true day-start equity as denominator for daily loss circuit breaker (F7)
+        day_start = day_start_equity if (day_start_equity is not None and day_start_equity > 0) else max(1.0, portfolio_equity - daily_pnl)
+        daily_loss_pct = abs(min(0.0, daily_pnl)) / day_start
         if daily_loss_pct >= self.settings.risk.max_daily_drawdown_pct:
             return RiskDecision(
                 status=GateStatus.REJECTED,
@@ -112,7 +117,24 @@ class RiskGate:
 
         max_risk_capital *= throttle_multiplier
 
+        # Fixed fractional risk sizing
         target_quantity = int(max_risk_capital / risk_per_share)
+
+        # Enforce maximum notional leverage cap (F5)
+        # Default 1.0 for cash delivery equity (no borrowing), 5.0 for intraday margin
+        max_notional_leverage = getattr(self.settings.risk, "max_notional_leverage", 1.0 if is_delivery else 5.0)
+        max_notional_capital = portfolio_equity * max_notional_leverage
+        max_shares_by_notional = int(max_notional_capital / (intent.entry + 1e-8))
+        target_quantity = min(target_quantity, max_shares_by_notional)
+
+        # Enforce ADV participation cap (F5)
+        max_adv_pct = getattr(self.settings.risk, "max_adv_pct", 0.02)
+        if intent.feature_snapshot and "volume_sma20" in intent.feature_snapshot.indicators:
+            adv_shares = intent.feature_snapshot.indicators["volume_sma20"]
+            max_shares_by_adv = int(adv_shares * max_adv_pct)
+            if max_shares_by_adv > 0:
+                target_quantity = min(target_quantity, max_shares_by_adv)
+
         if target_quantity < 1:
             return RiskDecision(
                 status=GateStatus.REJECTED,
@@ -125,22 +147,19 @@ class RiskGate:
                 defensive_multiplier=round(defensive_multiplier, 2),
             )
 
-        # 4. Indian Statutory Friction & Dynamic Slippage Modeling
-        friction_cfg = self.settings.friction
+        # 4. Indian Statutory Friction & Dynamic Slippage Modeling (F4)
         entry = intent.entry
         t1 = intent.targets[0] if intent.targets else entry
         turnover = (entry + t1) * target_quantity
 
-        # Brokerage (flat ₹20 entry + ₹20 exit = ₹40 flat)
-        brokerage = friction_cfg.brokerage_per_order * 2.0
-        # STT (0.02% on sell side for intraday)
-        stt = t1 * target_quantity * friction_cfg.stt_intraday_pct
-        # Exchange turnover (NSE 0.00325% on total turnover)
-        exchange_charges = turnover * friction_cfg.exchange_turnover_pct
-        # GST (18% on brokerage + exchange charges)
-        gst = (brokerage + exchange_charges) * friction_cfg.gst_pct
-        # Stamp Duty (0.003% on buy turnover)
-        stamp_duty = (entry * target_quantity) * friction_cfg.stamp_duty_pct
+        statutory_breakdown = StatutorySchedule.roundtrip_friction(
+            entry_price=entry,
+            exit_price=t1,
+            shares=target_quantity,
+            is_delivery=is_delivery,
+            brokerage_per_order=self.settings.friction.brokerage_per_order,
+        )
+        statutory_taxes = statutory_breakdown.total_statutory_friction
 
         # Dynamic Slippage Calculation:
         # Accounts for current bar volume ratio, realized volatility, and order turnover impact
@@ -157,7 +176,7 @@ class RiskGate:
         )
         slippage = slippage_quote.slippage_inr
 
-        total_friction = brokerage + stt + exchange_charges + gst + stamp_duty + slippage
+        total_friction = round(statutory_taxes + slippage, 2)
 
         # 5. Friction-Aware Net Expectancy Rule
         gross_profit = abs(t1 - entry) * target_quantity

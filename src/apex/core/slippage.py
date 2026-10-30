@@ -124,11 +124,12 @@ class DynamicSlippageModel:
         spot_price: float,
         volume_ratio: float = 1.0,
         volatility_pct: float = 0.015,
-        adv_turnover: float = 50_000_000.0,
+        adv_turnover: Optional[float] = None,
         is_market_order: bool = True,
     ) -> SlippageQuote:
-        """Compute full SlippageQuote including rupee cost, basis points, and latency breakdown."""
-        participation = turnover / (adv_turnover + 1e-8) if adv_turnover > 0 else 0.001
+        """Compute full SlippageQuote including rupee cost, basis points, and latency breakdown (F27)."""
+        effective_adv = adv_turnover if (adv_turnover is not None and adv_turnover > 0) else 50_000_000.0
+        participation = turnover / (effective_adv + 1e-8)
         slippage_pct = self.calculate_slippage_pct(
             volume_ratio=volume_ratio,
             volatility_pct=volatility_pct,

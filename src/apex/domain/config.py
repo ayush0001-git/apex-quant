@@ -24,6 +24,8 @@ class RiskSettings:
     max_asset_correlation: float = 0.70
     max_sector_exposure_pct: float = 0.25
     llm_defensive_throttle: bool = True
+    max_notional_leverage: float = 1.0
+    max_adv_pct: float = 0.02
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,10 @@ class FrictionSettings:
     sebi_turnover_pct: float
     stamp_duty_pct: float
     default_slippage_pct: float
+    stt_delivery_buy_pct: float = 0.0010
+    stt_delivery_sell_pct: float = 0.0010
+    stamp_duty_delivery_pct: float = 0.00015
+    stamp_duty_intraday_pct: float = 0.00003
     min_slippage_pct: float = 0.0002
     max_slippage_pct: float = 0.0050
     slippage_vol_factor: float = 0.5

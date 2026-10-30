@@ -2,8 +2,8 @@
 """Zero-cost MarketDataPort adapter using yfinance for NSE (.NS) and BSE (.BO) symbols."""
 import asyncio
 import math
-from datetime import datetime
-from typing import AsyncIterator, Sequence
+from datetime import datetime, timezone, timedelta
+from typing import AsyncIterator, Sequence, Optional
 import yfinance as yf
 from ...domain.models import Bar
 from ...domain.enums import Timeframe
@@ -17,6 +17,53 @@ TF_MAP = {
     Timeframe.H1: "60m",
     Timeframe.D1: "1d",
 }
+
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+TF_DELTA_MAP = {
+    Timeframe.M1: timedelta(minutes=1),
+    Timeframe.M5: timedelta(minutes=5),
+    Timeframe.M15: timedelta(minutes=15),
+    Timeframe.H1: timedelta(hours=1),
+    Timeframe.D1: timedelta(days=1),
+}
+
+
+def is_bar_closed(
+    timestamp: datetime,
+    timeframe: Timeframe,
+    now: Optional[datetime] = None,
+) -> bool:
+    """Determine whether an OHLCV candle has finalized or is currently forming.
+    
+    Prevents lookahead / causality leaks on active intraday or live daily candles.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    # Normalize timestamp to UTC
+    if timestamp.tzinfo is None:
+        # If naive, assume IST (Indian Market) and convert to UTC
+        bar_dt = timestamp.replace(tzinfo=timezone(IST_OFFSET)).astimezone(timezone.utc)
+    else:
+        bar_dt = timestamp.astimezone(timezone.utc)
+
+    if timeframe == Timeframe.D1:
+        # Indian market closes at 15:30 IST (10:00 UTC)
+        now_ist = now.astimezone(timezone(IST_OFFSET))
+        bar_ist = bar_dt.astimezone(timezone(IST_OFFSET))
+        if bar_ist.date() < now_ist.date():
+            return True
+        elif bar_ist.date() == now_ist.date():
+            # If today, closed only if current time >= 15:30 IST
+            return (now_ist.hour > 15) or (now_ist.hour == 15 and now_ist.minute >= 30)
+        else:
+            return False
+    else:
+        delta = TF_DELTA_MAP.get(timeframe, timedelta(minutes=15))
+        return (bar_dt + delta) <= now
 
 
 class YFinanceFeed(MarketDataPort):
@@ -78,7 +125,7 @@ class YFinanceFeed(MarketDataPort):
                     low=round(l, 2),
                     close=round(c, 2),
                     volume=round(v, 2),
-                    is_closed=True,
+                    is_closed=is_bar_closed(dt, timeframe),
                 )
             )
 

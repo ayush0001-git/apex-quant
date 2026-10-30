@@ -105,9 +105,11 @@ class TCAEngine:
         total_shortfall = cls.calculate_implementation_shortfall(arrival_price, fill_price, direction)
         statutory_bps = (statutory_friction_inr / (turnover_inr + 1e-8)) * 10_000.0
 
-        spread_bps = min(half_spread_bps, max(0.5, total_shortfall * 0.4))
-        impact_bps = max(0.0, total_shortfall - spread_bps)
-        delay_bps = max(0.0, total_shortfall * 0.15)
+        # Decompose total shortfall consistently without double-counting (F33)
+        delay_bps = max(0.0, min(total_shortfall * 0.20, 5.0))
+        remaining = max(0.0, total_shortfall - delay_bps)
+        spread_bps = min(half_spread_bps, remaining)
+        impact_bps = max(0.0, remaining - spread_bps)
 
         return {
             "total_shortfall_bps": round(total_shortfall, 2),

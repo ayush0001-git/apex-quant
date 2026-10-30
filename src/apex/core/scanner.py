@@ -10,6 +10,7 @@ Scans universes (NIFTY 50, NIFTY NEXT 50, NIFTY 100) and ranks candidates by:
 """
 from dataclasses import dataclass
 from datetime import datetime
+import logging
 from typing import Sequence, List, Mapping, Any, Optional
 from ..domain.enums import Direction, MarketRegime, Timeframe
 from ..domain.models import Bar, FeatureSnapshot
@@ -89,6 +90,7 @@ class ScannerService:
         at historical time t rather than relying solely on static indices.
         """
         liquid = []
+        errors = []
         for sym in symbols:
             try:
                 bars = await self._data_port.get_ohlcv(sym, timeframe, lookback_bars)
@@ -96,8 +98,14 @@ class ScannerService:
                     avg_turnover = sum(b.close * b.volume for b in bars) / len(bars)
                     if avg_turnover >= min_avg_turnover_inr:
                         liquid.append(sym)
-            except Exception:
+            except Exception as e:
+                errors.append(f"{sym}: {e}")
                 continue
+
+        if not liquid and errors:
+            logging.getLogger("apex.scanner").warning(
+                f"Liquidity filtering encountered errors on {len(errors)} symbols. Falling back to default baseline universe."
+            )
         return liquid if liquid else list(symbols[:20])
 
     async def scan_symbol(

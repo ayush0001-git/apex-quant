@@ -29,6 +29,8 @@ class BhavcopyAdapter(MarketDataPort):
         self._bars_by_symbol: Dict[str, List[Bar]] = {}
         # Date -> list of symbols traded on that specific date
         self._symbols_by_date: Dict[date, List[str]] = {}
+        # (Date, Symbol) -> TOTTRDVAL in INR (F28)
+        self._turnover_by_date_symbol: Dict[Tuple[date, str], float] = {}
 
     def load_bhavcopy_csv(self, csv_content: str | Path) -> int:
         """Parse an official NSE Bhavcopy CSV (file path or string content).
@@ -77,6 +79,7 @@ class BhavcopyAdapter(MarketDataPort):
                 low = float(clean_row.get("LOW", clean_row.get("LwPric", 0.0)))
                 cls_p = float(clean_row.get("CLOSE", clean_row.get("ClsPric", 0.0)))
                 vol = float(clean_row.get("TOTTRDQTY", clean_row.get("TtlTradgVol", 0.0)))
+                turnover_inr = float(clean_row.get("TOTTRDVAL", clean_row.get("TtlTrfVal", vol * cls_p)))
             except (ValueError, TypeError):
                 continue
 
@@ -103,6 +106,7 @@ class BhavcopyAdapter(MarketDataPort):
             if d not in self._symbols_by_date:
                 self._symbols_by_date[d] = []
             self._symbols_by_date[d].append(symbol)
+            self._turnover_by_date_symbol[(d, symbol)] = turnover_inr
 
             loaded_count += 1
 
@@ -159,17 +163,19 @@ class BhavcopyAdapter(MarketDataPort):
                 return []
             closest = min(dates, key=lambda d: abs((d - target_date).days))
             active_symbols = self._symbols_by_date[closest]
+            eval_date = closest
+        else:
+            eval_date = target_date
 
         liquid = []
         for sym in active_symbols:
-            bars = self._bars_by_symbol.get(sym, [])
-            matching = [b for b in bars if b.timestamp.date() == target_date]
-            if matching:
-                b = matching[0]
-                turnover = b.close * b.volume
-                if turnover >= min_turnover_inr:
-                    liquid.append(sym)
-            else:
+            turnover = self._turnover_by_date_symbol.get((eval_date, sym), 0.0)
+            if turnover <= 0:
+                bars = self._bars_by_symbol.get(sym, [])
+                matching = [b for b in bars if b.timestamp.date() == eval_date]
+                if matching:
+                    turnover = matching[0].close * matching[0].volume
+            if turnover >= min_turnover_inr or min_turnover_inr <= 0:
                 liquid.append(sym)
 
         return liquid
