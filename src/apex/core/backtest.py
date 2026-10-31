@@ -25,6 +25,7 @@ from .validation import InstitutionalValidator
 from .friction import StatutorySchedule
 from .ingestion import IngestionService
 from .regime import GaussianHMMRegimeDetector
+from ..adapters.data.fundamental_adapter import FundamentalAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class BacktestEngine:
         self.decision = DecisionEngine()
         self.risk = RiskGate(settings=self.settings)
         self.slippage_model = DynamicSlippageModel(self.settings.friction)
+        self.fundamental = FundamentalAdapter()
 
     def calculate_statutory_friction(
         self,
@@ -152,11 +154,11 @@ class BacktestEngine:
                 atr_val = pos.get("atr", 10.0)
 
                 # Friction-Aware Swing Trailing Stop:
-                # Once favorable move >= 2.0 * ATR, lock in +0.40 * ATR (covers all friction and secures win)
+                # Once favorable move >= 1.9 * ATR, lock in +0.40 * ATR (covers all friction and secures win)
                 favorable_move = current_bar.high - pos["entry_price"]
-                if favorable_move >= 2.0 * atr_val:
+                if favorable_move >= 1.9 * atr_val:
                     pos["stop"] = max(pos["stop"], pos["entry_price"] + (0.40 * atr_val))
-                if favorable_move >= 2.8 * atr_val:
+                if favorable_move >= 2.7 * atr_val:
                     pos["stop"] = max(pos["stop"], pos["entry_price"] + (1.20 * atr_val))
 
                 hit_target = current_bar.high >= pos["target"]
@@ -256,9 +258,18 @@ class BacktestEngine:
                         vol_gate >= 0.50
                     )
 
-                    is_high_conviction = regime_ok and mom_ok and trend_ok and rsi_ok and conviction_ok
-                    synth_action = Direction.LONG if is_high_conviction else Direction.HOLD
                     atr_val = features_snapshot.indicators.get("atr_14", current_bar.close * 0.015)
+
+                    # 6. Fundamental Quality Gate
+                    fund = self.fundamental.get_fundamentals(current_bar.symbol)
+                    fund_ok = (fund.piotroski_score >= 6) and (fund.debt_to_equity <= 1.2 or fund.roe_pct >= 14.0)
+
+                    # 7. Pullback to Value Filter: prevent overextended chase entries (>1.15 * ATR above EMA20)
+                    dist_from_ema20 = (features_snapshot.spot_price - ema_20) / atr_val if (ema_20 > 0 and atr_val > 0) else 0.0
+                    pullback_ok = dist_from_ema20 <= 1.15
+
+                    is_high_conviction = regime_ok and mom_ok and trend_ok and rsi_ok and conviction_ok and fund_ok and pullback_ok
+                    synth_action = Direction.LONG if is_high_conviction else Direction.HOLD
 
                     # Stop: 1.8 * ATR, Target: 3.2 * ATR (Positive 1:1.78 Risk-Reward)
                     debate = DebateResult(

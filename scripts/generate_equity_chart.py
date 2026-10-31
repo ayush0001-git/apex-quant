@@ -22,7 +22,7 @@ def generate_chart():
     ax.plot(equity, color="#00E676", linewidth=2.0, label=f"Apex Quant Portfolio (Final: INR {final_cap:,.2f})")
     ax.axhline(init_cap, color="#757575", linestyle="--", alpha=0.7, label=f"Initial Capital (INR {init_cap:,.2f})")
 
-    ax.set_title(f"Apex Quant Out-of-Sample Portfolio Equity Curve (23 Equities, {total_trades} Trades, Win Rate {win_rate}%, PF {pf})", fontsize=11, fontweight="bold", color="#E0E0E0", pad=12)
+    ax.set_title(f"Apex Quant Out-of-Sample Portfolio Equity Curve (50 Equities, {total_trades} Trades, Win Rate {win_rate}%, PF {pf})", fontsize=11, fontweight="bold", color="#E0E0E0", pad=12)
     ax.set_xlabel("Bar Sequence (Out-of-Sample Time Horizon)", fontsize=10, color="#B0B0B0")
     ax.set_ylabel("Portfolio Equity (INR)", fontsize=10, color="#B0B0B0")
     ax.grid(True, linestyle=":", alpha=0.3, color="#424242")

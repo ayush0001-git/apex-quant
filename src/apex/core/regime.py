@@ -20,7 +20,7 @@ from ..domain.models import Bar
 from ..domain.enums import MarketRegime
 from .ingestion import DataQualityError
 
-warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore")
 
 import os
 if "LOKY_MAX_CPU_COUNT" not in os.environ:

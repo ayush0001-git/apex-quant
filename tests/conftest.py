@@ -4,3 +4,4 @@ import os
 
 # Prevent joblib/loky on Windows from launching wmic subprocess during tests
 os.environ["LOKY_MAX_CPU_COUNT"] = "2"
+

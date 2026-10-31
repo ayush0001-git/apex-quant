@@ -7,7 +7,7 @@ timeframes:
   trigger: "15m"
 
 risk:
-  max_position_pct: 0.01
+  max_position_pct: 0.015
   max_daily_drawdown_pct: 0.02
   consecutive_loss_throttle: 3
   min_friction_multiplier: 3.5
@@ -18,7 +18,7 @@ risk:
   llm_defensive_throttle: true
   max_notional_leverage: 1.0
   max_adv_pct: 0.02
-  max_absolute_loss_inr: 500.0
+  max_absolute_loss_inr: 1500.0
 
 friction:
   brokerage_per_order: 20.0

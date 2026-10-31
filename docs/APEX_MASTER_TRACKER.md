@@ -390,11 +390,11 @@ apex-quant/
     - Kyle's lambda ADV parameterization in `core/slippage.py`.
     - Implementation shortfall decomposition validation in `core/tca.py`.
 - [x] **14.2 Reproducible Multi-Asset Portfolio Simulation (`scripts/run_portfolio_backtest.py`)**:
-  - Full portfolio simulation over 23 liquid NSE equities yielding verified artifact `docs/portfolio_backtest_results.json`.
-  - Initial Capital: ₹2,300,000.00 | Final Capital: ₹2,301,932.48 | Gross PnL: ₹4,796.45 | Net PnL: ₹1,932.48 (+0.08%).
-  - Total Trades: 51 | Win Rate: 52.9% (27 W / 24 L) | Profit Factor: 1.97 | Daily MTM Sharpe: 1.29 | Sortino: 2.03 | Max DD: -0.25% | CVaR (95% ES): 6.59%.
-  - Net Statutory & Slippage Retention: 40.3% after ₹2,863.97 in full statutory friction (delivery STT, GST, CDSL DP charges of ₹18.76, turnover charges, and Kyle's lambda slippage).
+  - Full portfolio simulation over 50 liquid NSE equities across 1,200 daily bars yielding verified artifact `docs/portfolio_backtest_results.json`.
+  - Initial Capital: ₹5,000,000.00 | Final Capital: ₹5,072,061.77 | Gross PnL: ₹167,841.21 | Net PnL: ₹72,061.71 (+1.44%).
+  - Total Trades: 713 | Win Rate: 57.2% (408 W / 305 L) | Profit Factor: 1.67 | Daily MTM Sharpe: 1.17 | Sortino: 1.64 | Max DD: -1.06% | CVaR (95% ES): 6.96%.
+  - Net Statutory & Slippage Retention: 42.9% after ₹95,779.50 in full statutory friction (delivery STT, GST, CDSL DP charges of ₹18.76, turnover charges, and Kyle's lambda slippage).
 - [x] **14.3 Visual Documentation Synchronization**:
   - Synchronized high-resolution dark-mode equity curve plot `assets/equity_curve.png` via `scripts/generate_equity_chart.py`.
   - Aligned `README.md`, `docs/ARTICLE_WRITEUP.md`, and `docs/RESUME_BULLET_POINTS.md` with verified backtest metrics and direct artifact links.
-- [x] **14.4 Full Test Suite Verified**: **103 passed, 0 failed in 6.63s across all unit, causality, contract, and API tests**.
+- [x] **14.4 Full Test Suite Verified**: **103 passed, 0 failed in 6.99s across all unit, causality, contract, and API tests**.

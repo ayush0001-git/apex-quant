@@ -40,13 +40,18 @@ from apex.domain.models import Bar
 from apex.core.backtest import BacktestEngine, BacktestSummary
 from apex.wiring.container import Container
 
-# 23 Liquid Active NSE Equities Universe
+# 50 Liquid Active NSE Equities Universe
 PORTFOLIO_UNIVERSE = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
     "BHARTIARTL.NS", "SBIN.NS", "ITC.NS", "KOTAKBANK.NS", "LT.NS",
     "AXISBANK.NS", "BAJFINANCE.NS", "MARUTI.NS", "BAJAJ-AUTO.NS", "SUNPHARMA.NS",
     "TITAN.NS", "M&M.NS", "WIPRO.NS", "NTPC.NS", "POWERGRID.NS",
-    "HCLTECH.NS", "ULTRACEMCO.NS", "ASIANPAINT.NS"
+    "HCLTECH.NS", "ULTRACEMCO.NS", "ASIANPAINT.NS", "TATAMOTORS.NS", "COALINDIA.NS",
+    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "GRASIM.NS", "ADANIENT.NS",
+    "ADANIPORTS.NS", "BPCL.NS", "IOC.NS", "ONGC.NS", "DRREDDY.NS",
+    "CIPLA.NS", "DIVISLAB.NS", "APOLLOHOSP.NS", "EICHERMOT.NS", "HEROMOTOCO.NS",
+    "BRITANNIA.NS", "NESTLEIND.NS", "TATACONSUM.NS", "HINDUNILVR.NS", "TECHM.NS",
+    "LTIM.NS", "INDUSINDBK.NS", "BAJAJFINSV.NS", "SHRIRAMFIN.NS", "TRENT.NS"
 ]
 
 

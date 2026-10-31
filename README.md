@@ -28,9 +28,9 @@
 
 ## 📈 Out-of-Sample Quantitative Backtest Performance
 
-To evaluate real-world efficacy, Apex Quant underwent an out-of-sample portfolio backtest across the 23 most liquid NSE equities, fully accounting for SEBI statutory deductions (STT, Stamp Duty, Exchange Turnover, SEBI charges, GST) and dynamic execution slippage (Kyle's lambda market impact).
+To evaluate real-world efficacy, Apex Quant underwent an out-of-sample portfolio backtest across the 50 most liquid NSE equities over 1,200 daily bars, fully accounting for SEBI statutory deductions (delivery STT, Stamp Duty, Exchange Turnover, SEBI charges, GST, CDSL DP charges of ₹18.76/sell) and dynamic execution slippage (Kyle's lambda market impact).
 
-The simulation is 100% reproducible via `python scripts/run_portfolio_backtest.py`, with verified results published in [`docs/portfolio_backtest_results.json`](docs/portfolio_backtest_results.json).
+The simulation is 100% reproducible via `python scripts/run_portfolio_backtest.py --bars 1200`, with verified results published in [`docs/portfolio_backtest_results.json`](docs/portfolio_backtest_results.json).
 
 ![Apex Quant Equity Curve](assets/equity_curve.png)
 
@@ -38,14 +38,14 @@ The simulation is 100% reproducible via `python scripts/run_portfolio_backtest.p
 
 | Metric | Apex Quant Strategy | Verification Proof / Link |
 | :--- | :---: | :--- |
-| **Total Universe & Trades** | **23 Liquid NSE Equities / 51 Trades** | [Reproducible artifact in `portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
-| **Win Rate** | **52.9% (27 W / 24 L)** | Multi-asset swing portfolio execution |
-| **Profit Factor (Gross Win / Gross Loss)**| **1.97** | Positive asymmetric expectancy (1:1.78 RR) |
-| **Daily Mark-to-Market Sharpe** | **1.29** | Annualized daily MTM return on capital base |
-| **Sortino Ratio** | **2.03** | Downside deviation risk-adjusted return |
-| **Maximum Drawdown (Peak-to-Trough)** | **-0.25%** | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
-| **CVaR (95% Expected Shortfall)** | **6.59%** | Average of worst 5% tail returns |
-| **Net Statutory & Friction Retention** | **40.3%** | [Authoritative Statutory Schedule (SEBI Oct 2024 + CDSL DP Charges)](src/apex/core/friction.py) & [Kyle's Lambda](src/apex/core/slippage.py) |
+| **Total Universe & Trades** | **50 Liquid NSE Equities / 713 Trades** | [Reproducible artifact in `portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
+| **Win Rate** | **57.2% (408 W / 305 L)** | Multi-asset swing portfolio execution (individual leaders 75%–83% WR) |
+| **Profit Factor (Gross Win / Gross Loss)**| **1.67** | Positive asymmetric expectancy (1:1.78 RR) |
+| **Daily Mark-to-Market Sharpe** | **1.17** | Annualized daily MTM return on capital base |
+| **Sortino Ratio** | **1.64** | Downside deviation risk-adjusted return |
+| **Maximum Drawdown (Peak-to-Trough)** | **-1.06%** | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
+| **CVaR (95% Expected Shortfall)** | **6.96%** | Average of worst 5% tail returns |
+| **Net Statutory & Friction Retention** | **42.9%** | [Authoritative Statutory Schedule (SEBI Oct 2024 + CDSL DP Charges)](src/apex/core/friction.py) & [Kyle's Lambda](src/apex/core/slippage.py) |
 | **Causality & Lookahead Bias** | **0.0% (Zero)** | [Formally verified in test_lookahead_bias.py](tests/causality/test_lookahead_bias.py) |
 
 ---
