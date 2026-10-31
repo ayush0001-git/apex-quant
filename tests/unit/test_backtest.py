@@ -1,4 +1,4 @@
-﻿# apex-quant/tests/unit/test_backtest.py
+# apex-quant/tests/unit/test_backtest.py
 """Unit tests for the BacktestEngine."""
 import asyncio
 from apex.core.backtest import BacktestEngine
@@ -27,7 +27,8 @@ def test_backtest_statutory_friction_deduction():
     friction_buy = engine.calculate_statutory_friction(turnover=turnover, shares=40, is_buy=True)
     friction_sell = engine.calculate_statutory_friction(turnover=turnover, shares=40, is_buy=False)
     
-    # Assert friction includes brokerage, STT, turnover, GST, stamp, and slippage
+    # Assert friction includes brokerage, STT, turnover, GST, stamp, DP charges, and slippage
     assert friction_buy > 0.0
     assert friction_sell > 0.0
-    assert friction_buy > friction_sell  # Stamp duty applies only on buy side in India
+    # In delivery trading, sell-side includes CDSL DP charge (₹18.76) which exceeds buy-side stamp duty (₹15.00)
+    assert friction_sell > friction_buy

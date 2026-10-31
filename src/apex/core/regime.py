@@ -22,6 +22,10 @@ from .ingestion import DataQualityError
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
+import os
+if "LOKY_MAX_CPU_COUNT" not in os.environ:
+    os.environ["LOKY_MAX_CPU_COUNT"] = "4"
+
 try:
     from hmmlearn.hmm import GaussianHMM
     HMMLEARN_AVAILABLE = True

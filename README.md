@@ -38,14 +38,14 @@ The simulation is 100% reproducible via `python scripts/run_portfolio_backtest.p
 
 | Metric | Apex Quant Strategy | Verification Proof / Link |
 | :--- | :---: | :--- |
-| **Total Universe & Trades** | **23 Liquid NSE Equities / 142 Trades** | [Reproducible artifact in `portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
-| **Win Rate** | **71.8% (102 W / 40 L)** | Multi-asset portfolio execution |
-| **Profit Factor (Gross Win / Gross Loss)**| **4.07** | Positive asymmetric expectancy |
-| **Daily Mark-to-Market Sharpe** | **7.34** | Annualized daily MTM return on capital base |
-| **Sortino Ratio** | **24.9** | Minimal downside volatility deviation |
-| **Maximum Drawdown (Peak-to-Trough)** | **-0.13%** | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
-| **CVaR (95% Expected Shortfall)** | **6.83%** | Average of worst 5% tail returns |
-| **Net Statutory & Friction Retention** | **85.3%** | [Authoritative Statutory Schedule](src/apex/core/friction.py) & [Kyle's Lambda](src/apex/core/slippage.py) |
+| **Total Universe & Trades** | **23 Liquid NSE Equities / 51 Trades** | [Reproducible artifact in `portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
+| **Win Rate** | **52.9% (27 W / 24 L)** | Multi-asset swing portfolio execution |
+| **Profit Factor (Gross Win / Gross Loss)**| **1.97** | Positive asymmetric expectancy (1:1.78 RR) |
+| **Daily Mark-to-Market Sharpe** | **1.29** | Annualized daily MTM return on capital base |
+| **Sortino Ratio** | **2.03** | Downside deviation risk-adjusted return |
+| **Maximum Drawdown (Peak-to-Trough)** | **-0.25%** | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
+| **CVaR (95% Expected Shortfall)** | **6.59%** | Average of worst 5% tail returns |
+| **Net Statutory & Friction Retention** | **40.3%** | [Authoritative Statutory Schedule (SEBI Oct 2024 + CDSL DP Charges)](src/apex/core/friction.py) & [Kyle's Lambda](src/apex/core/slippage.py) |
 | **Causality & Lookahead Bias** | **0.0% (Zero)** | [Formally verified in test_lookahead_bias.py](tests/causality/test_lookahead_bias.py) |
 
 ---

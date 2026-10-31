@@ -85,28 +85,55 @@ class PortfolioRiskEngine:
         },
     }
 
-    # Standard NIFTY sector mappings
+    # Standard NIFTY sector mappings (expanded for NIFTY 50 / 100)
     SECTOR_MAP = {
         "RELIANCE.NS": "ENERGY",
         "TCS.NS": "IT",
         "INFY.NS": "IT",
         "WIPRO.NS": "IT",
+        "HCLTECH.NS": "IT",
+        "TECHM.NS": "IT",
+        "LTIM.NS": "IT",
         "HDFCBANK.NS": "BANKING",
         "ICICIBANK.NS": "BANKING",
         "SBIN.NS": "BANKING",
         "KOTAKBANK.NS": "BANKING",
         "AXISBANK.NS": "BANKING",
+        "INDUSINDBK.NS": "BANKING",
         "BAJFINANCE.NS": "FINANCIAL_SERVICES",
+        "BAJAJFINSV.NS": "FINANCIAL_SERVICES",
+        "SBILIFE.NS": "FINANCIAL_SERVICES",
+        "HDFCLIFE.NS": "FINANCIAL_SERVICES",
         "ITC.NS": "FMCG",
+        "HINDUNILVR.NS": "FMCG",
+        "NESTLEIND.NS": "FMCG",
+        "BRITANNIA.NS": "FMCG",
         "LT.NS": "CAPITAL_GOODS",
         "BHARTIARTL.NS": "TELECOM",
         "MARUTI.NS": "AUTO",
         "TATAMOTORS.NS": "AUTO",
+        "BAJAJ-AUTO.NS": "AUTO",
         "M&M.NS": "AUTO",
+        "EICHERMOT.NS": "AUTO",
+        "HEROMOTOCO.NS": "AUTO",
         "SUNPHARMA.NS": "PHARMA",
+        "CIPLA.NS": "PHARMA",
+        "DRREDDY.NS": "PHARMA",
+        "APOLLOHOSP.NS": "PHARMA",
         "TITAN.NS": "CONSUMER",
+        "ASIANPAINT.NS": "CONSUMER",
         "NTPC.NS": "POWER",
         "POWERGRID.NS": "POWER",
+        "COALINDIA.NS": "ENERGY",
+        "ONGC.NS": "ENERGY",
+        "BPCL.NS": "ENERGY",
+        "ULTRACEMCO.NS": "MATERIALS",
+        "GRASIM.NS": "MATERIALS",
+        "TATASTEEL.NS": "METALS",
+        "JSWSTEEL.NS": "METALS",
+        "HINDALCO.NS": "METALS",
+        "ADANIENT.NS": "CONGLOMERATE",
+        "ADANIPORTS.NS": "INFRA",
     }
 
     def __init__(
@@ -180,8 +207,10 @@ class PortfolioRiskEngine:
             L = np.linalg.cholesky(cov_adjusted)
 
         np.random.seed(42)
-        # Student-t shocks with df=5 to model empirical fat tails of Indian equities
-        t_shocks = np.random.standard_t(df=5, size=(num_simulations, num_assets))
+        # Student-t shocks with df=5, normalized by sqrt((df-2)/df) so variance is 1.0 (P0-5)
+        df = 5
+        variance_normalization = math.sqrt((df - 2) / df)
+        t_shocks = np.random.standard_t(df=df, size=(num_simulations, num_assets)) * variance_normalization
         correlated_shocks = t_shocks @ L.T
 
         sim_asset_returns = mean_rets * days_horizon + correlated_shocks * math.sqrt(days_horizon)
@@ -290,11 +319,11 @@ class PortfolioRiskEngine:
                 )
             )
 
-        # 4b. Sector Concentration Cap Check (F17)
+        # 4b. Sector Concentration Cap Check (F17 / P1-4)
         sector_allocations: Dict[str, float] = {}
         for sym, alloc in positions.items():
             clean_sym = sym if sym in self.SECTOR_MAP else f"{sym}.NS" if f"{sym}.NS" in self.SECTOR_MAP else sym
-            sec = self.SECTOR_MAP.get(clean_sym, "OTHER")
+            sec = self.SECTOR_MAP.get(clean_sym, f"UNMAPPED_{clean_sym}")
             sector_allocations[sec] = sector_allocations.get(sec, 0.0) + alloc
 
         max_sec_exposure = max((val / total_equity for val in sector_allocations.values()), default=0.0)

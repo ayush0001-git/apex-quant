@@ -9,7 +9,7 @@ These bullet points are crafted to highlight specific competencies for three dis
 * **Architected an institutional-grade quantitative trading terminal** for Indian equities (NSE/BSE) utilizing Hexagonal Architecture (Ports & Adapters) in Python 3.12, achieving complete isolation between market ingestion, mathematical models, and execution brokers.
 * **Developed an automated, non-repainting feature pipeline** integrating 61 TA-Lib candlestick patterns and multi-timeframe confluence, mathematically proving zero lookahead bias via automated causality regression testing (`is_closed == True`).
 * **Engineered a deterministic, pure-math RiskGate** enforcing a strict $\le 1\%$ portfolio risk budget, 2% daily loss circuit breaker, and SEBI statutory friction hurdle ($\text{Net Profit} > 3.5\times \text{STT/GST}$), eliminating LLM hallucination risks in position sizing.
-* **Conducted a multi-asset out-of-sample portfolio simulation** across 23 liquid NSE equities yielding a **71.8% Win Rate** (102W/40L), **4.07 Profit Factor**, and **-0.13% Max Drawdown**, retaining **85.3%** of gross gains after deducting full SEBI statutory taxes (STT, Stamp Duty, GST, Exchange turnover) and Kyle's lambda market impact slippage.
+* **Conducted a multi-asset out-of-sample portfolio simulation** across 23 liquid NSE equities yielding a **52.9% Win Rate** (27W/24L), **1.97 Profit Factor**, **1.29 Daily MTM Sharpe Ratio**, and **-0.25% Max Drawdown**, retaining **40.3%** of gross gains after deducting full SEBI statutory taxes (STT, Stamp Duty, GST, Exchange turnover, CDSL DP charges) and Kyle's lambda market impact slippage.
 
 ---
 
@@ -18,7 +18,7 @@ These bullet points are crafted to highlight specific competencies for three dis
 * **Designed an end-to-end financial data ingestion and validation pipeline** processing real-time and historical tick streams across 23+ liquid instruments, implementing data quality assertions for dead volume, inverted spreads, and timestamp monotonicity.
 * **Enforced strict data lineage and provenance logging** via SQLite/PostgreSQL audit stores, cryptographically capturing input tick snapshots, feature vectors, neural forecast bands, and risk proofs for 100% regulatory replayability.
 * **Implemented an autoregressive neural forecasting service (Kronos)** generating 12-bar forward probability range distributions while maintaining a strict zero-dependency domain boundary.
-* **Containerized the terminal via Docker and Docker Compose**, implementing GitHub Actions CI workflows with 112 automated unit, contract, and causality tests running in under 20 seconds.
+* **Containerized the terminal via Docker and Docker Compose**, implementing GitHub Actions CI workflows with 103 automated unit, contract, and causality tests running in under 10 seconds.
 
 ---
 

@@ -54,7 +54,8 @@ class InstitutionalValidator:
 
         mean = float(np.mean(arr))
         std = float(np.std(arr, ddof=1)) + 1e-10
-        nominal_sr = (mean / std) * annualization_factor
+        sr_per_period = mean / std
+        nominal_sr = sr_per_period * annualization_factor
 
         # Skewness and Kurtosis
         skew = float(stats.skew(arr))
@@ -71,12 +72,12 @@ class InstitutionalValidator:
         else:
             expected_max_sr = benchmark_sharpe
 
-        # Standard error of Sharpe ratio under non-normality (Mertens 2002)
-        sr_var = 1.0 - skew * (nominal_sr / annualization_factor) + ((kurt - 1.0) / 4.0) * ((nominal_sr / annualization_factor) ** 2)
+        # Standard error of Sharpe ratio under non-normality (Mertens 2002 / Bailey & López de Prado)
+        sr_var = 1.0 - skew * sr_per_period + ((kurt - 1.0) / 4.0) * (sr_per_period ** 2)
         sr_std_err = math.sqrt(max(1e-8, sr_var)) / math.sqrt(n - 1)
 
-        # Deflated Sharpe z-score
-        z_stat = (nominal_sr - expected_max_sr) / (sr_std_err * annualization_factor + 1e-10)
+        # Deflated Sharpe z-score on consistent per-period scale (P0-4)
+        z_stat = (sr_per_period - expected_max_sr) / (sr_std_err + 1e-10)
         dsr_prob = float(stats.norm.cdf(z_stat))
 
         return round(nominal_sr, 2), round(dsr_prob, 4), round(skew, 2), round(kurt, 2)

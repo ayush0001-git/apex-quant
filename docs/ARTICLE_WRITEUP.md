@@ -76,7 +76,7 @@ Quant models are only as good as an analyst's ability to interpret and act on th
 
 ### Explore the Code
 * **GitHub Repository**: [https://github.com/ayush0001-git/apex-quant](https://github.com/ayush0001-git/apex-quant)
-* **Live Test Suite**: 112/112 Passing on GitHub Actions CI
-* **Reproducible Portfolio Backtest**: Verified 142 trades with statutory friction & Kyle's lambda slippage in `docs/portfolio_backtest_results.json`
+* **Live Test Suite**: 103/103 Unit, Contract & Causality Tests Passing
+* **Reproducible Portfolio Backtest**: Verified 51 swing trades across 23 NSE equities with SEBI Oct 2024 statutory friction (STT, GST, CDSL DP charges) & Kyle's lambda slippage in `docs/portfolio_backtest_results.json`
 * **Documentation**: Architecture Specifications, Data Integrity Pipeline, and ADRs included in `/docs`.
 

@@ -18,7 +18,7 @@ Provides authoritative SEBI and Exchange statutory schedules for Indian Equities
    - GST: 18% on (Brokerage + Exchange Charges + SEBI Turnover Fee).
 """
 from dataclasses import dataclass
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,7 @@ class StatutoryBreakdown:
     stamp_duty: float
     gst: float
     total_statutory_friction: float
+    dp_charges: float = 0.0
 
 
 class StatutorySchedule:
@@ -40,6 +41,7 @@ class StatutorySchedule:
     DELIVERY_STT_BUY_PCT: float = 0.0010       # 0.10% on buy
     DELIVERY_STT_SELL_PCT: float = 0.0010      # 0.10% on sell
     DELIVERY_STAMP_DUTY_PCT: float = 0.00015   # 0.015% on buy
+    DP_CHARGE_PER_SCRIP: float = 18.76         # CDSL ₹13.50 + broker fee + 18% GST on delivery sell
 
     # Intraday Statutory Rates
     INTRADAY_STT_BUY_PCT: float = 0.0000       # 0.0% on buy
@@ -47,10 +49,24 @@ class StatutorySchedule:
     INTRADAY_STAMP_DUTY_PCT: float = 0.00003   # 0.003% on buy
 
     # Common Regulatory Charges
-    EXCHANGE_TURNOVER_PCT: float = 0.0000325   # NSE 0.00325%
+    EXCHANGE_TURNOVER_PCT: float = 0.0000297   # NSE 0.00297% (effective Oct 1, 2024 SEBI circular)
     SEBI_TURNOVER_PCT: float = 0.000001        # SEBI ₹10 / Cr (0.0001%)
     GST_PCT: float = 0.18                      # 18% GST on fees
     DEFAULT_BROKERAGE_PER_ORDER: float = 20.0  # Flat ₹20 per order
+
+    @classmethod
+    def configure_from_settings(cls, settings: Any) -> None:
+        """Dynamically load and configure statutory fee rates from settings."""
+        if hasattr(settings, "friction"):
+            f = settings.friction
+            cls.DEFAULT_BROKERAGE_PER_ORDER = getattr(f, "brokerage_per_order", cls.DEFAULT_BROKERAGE_PER_ORDER)
+            cls.EXCHANGE_TURNOVER_PCT = getattr(f, "exchange_turnover_pct", cls.EXCHANGE_TURNOVER_PCT)
+            cls.SEBI_TURNOVER_PCT = getattr(f, "sebi_turnover_pct", cls.SEBI_TURNOVER_PCT)
+            cls.GST_PCT = getattr(f, "gst_pct", cls.GST_PCT)
+            cls.DELIVERY_STT_BUY_PCT = getattr(f, "stt_delivery_buy_pct", cls.DELIVERY_STT_BUY_PCT)
+            cls.DELIVERY_STT_SELL_PCT = getattr(f, "stt_delivery_sell_pct", cls.DELIVERY_STT_SELL_PCT)
+            cls.INTRADAY_STT_SELL_PCT = getattr(f, "stt_intraday_pct", cls.INTRADAY_STT_SELL_PCT)
+            cls.DP_CHARGE_PER_SCRIP = getattr(f, "dp_charge_per_scrip", cls.DP_CHARGE_PER_SCRIP)
 
     @classmethod
     def calculate_statutory_friction(
@@ -98,8 +114,9 @@ class StatutorySchedule:
         exchange_charges = turnover * cls.EXCHANGE_TURNOVER_PCT
         sebi_charges = turnover * cls.SEBI_TURNOVER_PCT
         gst = (brokerage + exchange_charges + sebi_charges) * cls.GST_PCT
+        dp_charge = cls.DP_CHARGE_PER_SCRIP if (not is_buy and is_delivery) else 0.0
 
-        total = round(brokerage + stt + exchange_charges + sebi_charges + stamp_duty + gst, 2)
+        total = round(brokerage + stt + exchange_charges + sebi_charges + stamp_duty + gst + dp_charge, 2)
 
         return StatutoryBreakdown(
             brokerage=round(brokerage, 2),
@@ -109,6 +126,7 @@ class StatutorySchedule:
             stamp_duty=round(stamp_duty, 2),
             gst=round(gst, 2),
             total_statutory_friction=total,
+            dp_charges=round(dp_charge, 2),
         )
 
     @classmethod
@@ -135,4 +153,5 @@ class StatutorySchedule:
             stamp_duty=round(b1.stamp_duty + b2.stamp_duty, 2),
             gst=round(b1.gst + b2.gst, 2),
             total_statutory_friction=round(b1.total_statutory_friction + b2.total_statutory_friction, 2),
+            dp_charges=round(b1.dp_charges + b2.dp_charges, 2),
         )

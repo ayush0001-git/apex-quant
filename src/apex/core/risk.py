@@ -93,6 +93,8 @@ class RiskGate:
             )
 
         max_risk_capital = portfolio_equity * self.settings.risk.max_position_pct
+        max_abs_loss = getattr(self.settings.risk, "max_absolute_loss_inr", 500.0)
+        max_risk_capital = min(max_risk_capital, max_abs_loss)
 
         # Throttle position size if consecutive losses >= threshold
         throttle_multiplier = 1.0
@@ -100,14 +102,14 @@ class RiskGate:
             throttle_multiplier *= 0.5
 
         # Bounded Defensive Throttle from Qualitative LLM Debate:
-        # If qualitative debate diverges or shows low conviction, scale down safely
+        # If qualitative debate diverges or shows low conviction, scale down safely in [0.5, 1.0]
         defensive_multiplier = 1.0
         if getattr(self.settings.risk, "llm_defensive_throttle", True) and intent.debate:
             conf = getattr(intent.debate, "confidence_score", 0.0)
             if intent.direction == Direction.LONG and conf < -0.1:
-                defensive_multiplier = max(0.5, min(1.0, 0.7 + 0.3 * (conf + 1.0) / 2.0))
+                defensive_multiplier = max(0.5, min(1.0, 0.5 + 0.5 * (conf + 1.0) / 2.0))
             elif intent.direction == Direction.SHORT and conf > 0.1:
-                defensive_multiplier = max(0.5, min(1.0, 0.7 + 0.3 * (1.0 - conf) / 2.0))
+                defensive_multiplier = max(0.5, min(1.0, 0.5 + 0.5 * (1.0 - conf) / 2.0))
 
         throttle_multiplier *= defensive_multiplier
 

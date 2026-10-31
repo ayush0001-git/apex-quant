@@ -1,5 +1,6 @@
-﻿# apex-quant/src/apex/adapters/storage/sqlite_audit.py
+# apex-quant/src/apex/adapters/storage/sqlite_audit.py
 """SQLiteAuditAdapter: Immutable local audit logging for trade decisions."""
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -10,7 +11,7 @@ from ...ports.storage_port import StoragePort
 
 
 class SQLiteAuditAdapter(StoragePort):
-    """Persists immutable audit trails to local SQLite database."""
+    """Persists immutable audit trails to local SQLite database with cryptographic chaining."""
 
     def __init__(self, db_path: Path | str = "apex_audit.db") -> None:
         self.db_path = str(db_path)
@@ -31,10 +32,19 @@ class SQLiteAuditAdapter(StoragePort):
                     status TEXT NOT NULL,
                     risk_reason TEXT,
                     net_rr REAL,
-                    payload_json TEXT NOT NULL
+                    payload_json TEXT NOT NULL,
+                    payload_hash TEXT,
+                    prev_hash TEXT
                 )
                 """
             )
+            # Ensure columns exist if table was already created
+            cursor = conn.execute("PRAGMA table_info(audit_logs)")
+            cols = {row[1] for row in cursor.fetchall()}
+            if "payload_hash" not in cols:
+                conn.execute("ALTER TABLE audit_logs ADD COLUMN payload_hash TEXT")
+            if "prev_hash" not in cols:
+                conn.execute("ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT")
             conn.commit()
 
     async def save_audit(self, record: AuditRecord) -> None:
@@ -61,12 +71,20 @@ class SQLiteAuditAdapter(StoragePort):
             },
         }
 
+        payload_str = json.dumps(payload, sort_keys=True)
+        payload_hash = hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
+
         with sqlite3.connect(self.db_path) as conn:
+            # Chained previous hash for tamper-evident provenance (P1-11)
+            cursor = conn.execute("SELECT payload_hash FROM audit_logs ORDER BY rowid DESC LIMIT 1")
+            last_row = cursor.fetchone()
+            prev_hash = last_row[0] if last_row and last_row[0] else "GENESIS_ROOT"
+
             conn.execute(
                 """
-                INSERT OR REPLACE INTO audit_logs (
-                    audit_id, timestamp_utc, algo_id, symbol, direction, entry, stop, status, risk_reason, net_rr, payload_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO audit_logs (
+                    audit_id, timestamp_utc, algo_id, symbol, direction, entry, stop, status, risk_reason, net_rr, payload_json, payload_hash, prev_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.audit_id,
@@ -79,7 +97,9 @@ class SQLiteAuditAdapter(StoragePort):
                     record.risk.status.value,
                     record.risk.reason,
                     record.risk.net_rr_ratio,
-                    json.dumps(payload),
+                    payload_str,
+                    payload_hash,
+                    prev_hash,
                 ),
             )
             conn.commit()

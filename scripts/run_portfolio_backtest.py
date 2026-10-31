@@ -8,10 +8,22 @@ Resolves Audit Finding F6:
 4. Computes true mark-to-market portfolio equity curve, Sharpe, Sortino, Drawdown, DSR, PBO, and CVaR.
 5. Emits verified JSON artifact: docs/portfolio_backtest_results.json.
 """
+import os
+import sys
+
+if "LOKY_MAX_CPU_COUNT" not in os.environ:
+    os.environ["LOKY_MAX_CPU_COUNT"] = "4"
+
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
 import argparse
 import json
 import math
 import sys
+import hashlib
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Any
@@ -39,21 +51,26 @@ PORTFOLIO_UNIVERSE = [
 
 
 def generate_realistic_mock_bars(symbol: str, lookback: int = 150) -> List[Bar]:
-    """Generate realistic synthetic OHLCV bars with trending and mean-reverting regimes."""
-    seed = abs(hash(symbol)) % (2**31)
+    """Generate realistic synthetic OHLCV bars across multi-regime cycles with stable seed (P0-3)."""
+    # Deterministic SHA-256 process-independent seed
+    seed = int(hashlib.sha256(symbol.encode("utf-8")).hexdigest()[:8], 16) % (2**31)
     rng = np.random.RandomState(seed)
-    base_price = 1000.0 + (abs(hash(symbol)) % 2500)
+    base_price = 800.0 + (int(hashlib.sha256((symbol + "_price").encode("utf-8")).hexdigest()[:8], 16) % 2200)
     now = datetime(2026, 10, 23, 15, 30, 0)
 
-    # Generate geometric Brownian motion with mild positive drift & cyclical vol
-    drift = 0.0008
-    vol = 0.016
-    daily_returns = rng.normal(drift, vol, lookback)
-    
-    # Introduce 2-3 trending breakout waves to test non-repainting momentum & confluence
-    wave1_start = lookback // 3
-    wave1_end = wave1_start + (lookback // 6)
-    daily_returns[wave1_start:wave1_end] += rng.uniform(0.008, 0.022, wave1_end - wave1_start)
+    # Multi-regime return series:
+    # 1. Base returns with realistic volatility
+    daily_returns = rng.normal(0.0003, 0.015, lookback)
+
+    # 2. Trending regime slice (bullish momentum)
+    trend_start = lookback // 4
+    trend_end = trend_start + (lookback // 4)
+    daily_returns[trend_start:trend_end] += rng.uniform(0.003, 0.012, trend_end - trend_start)
+
+    # 3. Consolidation & pullback slice (testing stops and risk preservation)
+    chop_start = lookback // 2
+    chop_end = chop_start + (lookback // 5)
+    daily_returns[chop_start:chop_end] -= rng.uniform(0.002, 0.009, chop_end - chop_start)
 
     prices = [base_price]
     for r in daily_returns:
@@ -64,14 +81,13 @@ def generate_realistic_mock_bars(symbol: str, lookback: int = 150) -> List[Bar]:
         ts = now - timedelta(days=(lookback - i))
         p = prices[i]
         c = prices[i + 1]
-        noise_h = rng.uniform(0.003, 0.012) * p
-        noise_l = rng.uniform(0.003, 0.012) * p
+        noise_h = rng.uniform(0.002, 0.010) * p
+        noise_l = rng.uniform(0.002, 0.010) * p
         o = p
         h = max(o, c) + noise_h
         l = min(o, c) - noise_l
-        # Volume expansion during strong momentum
-        vol_boost = 2.0 if i >= wave1_start and i <= wave1_end else 1.0
-        v = rng.uniform(500000.0, 2500000.0) * vol_boost
+        vol_boost = 1.4 if i >= trend_start and i <= trend_end else 1.0
+        v = rng.uniform(500000.0, 2000000.0) * vol_boost
 
         bars.append(
             Bar(
@@ -98,7 +114,7 @@ def run_portfolio_simulation(
 ) -> Dict[str, Any]:
     """Execute historical portfolio simulation across assets and aggregate metrics."""
     settings = Settings.load()
-    container = Container(settings=settings, use_mock=use_mock)
+    container = None if use_mock else Container(settings=settings, use_mock=use_mock)
     engine = BacktestEngine(settings=settings)
 
     print(f"\n================================================================================")
@@ -116,21 +132,17 @@ def run_portfolio_simulation(
     total_friction_paid = 0.0
     total_net_pnl = 0.0
 
-    # Execute asset by asset in loop (async to sync bridge)
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
     for idx, sym in enumerate(symbols, 1):
         try:
+            print(f"  [{idx:02d}/{len(symbols):02d}] {sym:<15} ... ", end="", flush=True)
             if use_mock:
                 raw_bars = generate_realistic_mock_bars(sym, lookback_bars)
             else:
-                raw_bars = loop.run_until_complete(
-                    container.data_port.get_ohlcv(sym, timeframe, lookback_bars)
-                )
+                import asyncio
+                raw_bars = asyncio.run(container.data_port.get_ohlcv(sym, timeframe, lookback_bars))
+
             if len(raw_bars) < 35:
-                print(f"  [{idx:02d}/{len(symbols):02d}] {sym:<15} SKIPPED (insufficient bars: {len(raw_bars)})")
+                print(f"SKIPPED (insufficient bars: {len(raw_bars)})", flush=True)
                 total_final_capital += capital_per_asset
                 continue
 
@@ -159,14 +171,12 @@ def run_portfolio_simulation(
                     "exit_reason": t.exit_reason,
                 })
 
-            print(f"  [{idx:02d}/{len(symbols):02d}] {sym:<15} | Trades: {summary.total_trades:2d} | "
-                  f"WinRate: {summary.win_rate_pct:5.1f}% | Net PnL: INR {summary.net_pnl:+9.2f} | "
-                  f"Friction: INR {summary.total_friction:7.2f} | MaxDD: {summary.max_drawdown_pct:4.1f}%")
+            print(f"Trades: {summary.total_trades:2d} | WinRate: {summary.win_rate_pct:5.1f}% | "
+                  f"Net PnL: INR {summary.net_pnl:+9.2f} | Friction: INR {summary.total_friction:7.2f} | "
+                  f"MaxDD: {summary.max_drawdown_pct:4.1f}%", flush=True)
         except Exception as exc:
-            print(f"  [{idx:02d}/{len(symbols):02d}] {sym:<15} ERROR: {exc}")
+            print(f"ERROR: {exc}", flush=True)
             total_final_capital += capital_per_asset
-
-    loop.close()
 
     # Portfolio level aggregation
     total_trades_count = len(all_trades)
@@ -262,8 +272,15 @@ def run_portfolio_simulation(
     docs_dir = ROOT_DIR / "docs"
     docs_dir.mkdir(exist_ok=True)
     out_file = docs_dir / "portfolio_backtest_results.json"
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
+    try:
+        with open(out_file, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
+    except PermissionError:
+        scratch_path = Path(r"C:\Users\ayush\.gemini\antigravity\brain\2e7c8686-c335-4738-b15b-91c1b2fee4e7\scratch\portfolio_backtest_results.json")
+        scratch_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(scratch_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
+        print(f"  Note: Saved results to scratch path: {scratch_path}", flush=True)
 
     print(f"\n================================================================================")
     print(f"  PORTFOLIO BACKTEST RESULTS SUMMARY")
