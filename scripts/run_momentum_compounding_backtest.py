@@ -276,3 +276,4 @@ if __name__ == "__main__":
         lookback_bars=args.bars,
         max_loss_inr=args.max_loss,
     )
+

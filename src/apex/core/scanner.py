@@ -164,6 +164,12 @@ class ScannerService:
 
             vol_gate = getattr(snapshot, "volatility_gate", 1.0)
 
+            # Anti-Chase Extension Gate: Prevent buying tops and overextended breakout traps
+            ema_20 = snapshot.indicators.get("ema_20", spot)
+            dist_ema20_pct = ((spot - ema_20) / (ema_20 + 1e-6)) * 100.0 if ema_20 > 0 else 0.0
+            rsi = snapshot.indicators.get("rsi_14", 50.0)
+            is_overextended = (dist_ema20_pct > 3.2 or rsi > 65.0)
+
             if bias == Direction.LONG:
                 entry = spot
                 stop = round(spot - (1.5 * atr), 2)
@@ -172,7 +178,12 @@ class ScannerService:
                 base_score = (snapshot.confluence_score * 0.5) + (min(snapshot.volume_ratio, 2.0) * 20)
                 if active_bull_patterns:
                     base_score = min(100.0, base_score + 15.0)
-                score = round(base_score * vol_gate, 1)
+                
+                # Apply 55% penalty if stock is already extended (anti-FOMO filter)
+                extension_mult = 0.45 if is_overextended else 1.0
+                score = round(base_score * vol_gate * extension_mult, 1)
+                if is_overextended:
+                    reasons.append(f"OVEREXTENDED: +{dist_ema20_pct:.1f}% above 20-EMA (RSI {rsi:.1f}); high pullback risk")
             elif bias == Direction.SHORT:
                 entry = spot
                 stop = round(spot + (1.5 * atr), 2)
