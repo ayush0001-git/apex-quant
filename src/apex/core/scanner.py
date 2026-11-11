@@ -17,6 +17,7 @@ from ..domain.models import Bar, FeatureSnapshot
 from ..ports.data_port import MarketDataPort
 from .features import FeatureService
 from .ingestion import IngestionService
+from .vetoes import VetoService
 
 
 # Expanded Institutional Universes for Indian Equities
@@ -67,6 +68,8 @@ class ScanOpportunity:
     factor_composite: float = 0.0
     volatility_gate: float = 1.0
     volume_zscore: float = 0.0
+    is_vetoed: bool = False
+    vetoes: tuple[str, ...] = ()
 
 
 class ScannerService:
@@ -203,6 +206,25 @@ class ScannerService:
                 score = min(score, 35.0)
                 reasons.append("HIGH_VOLATILITY_TURBULENCE: Risk gate throttle active")
 
+            # Evaluate Institutional Vetoes (Ported from v5)
+            active_vetoes: list[str] = []
+            is_vetoed = False
+            if bias == Direction.LONG:
+                is_breakout = (dist_ema20_pct >= 1.5)
+                is_pullback = (dist_ema20_pct < 1.5 and snapshot.regime in (MarketRegime.BULL_EXPANSION, MarketRegime.LOW_VOLATILITY_TREND))
+                wyckoff_veto = VetoService.evaluate_wyckoff_volume(
+                    is_breakout=is_breakout,
+                    is_pullback=is_pullback,
+                    volume_ratio=snapshot.volume_ratio,
+                    direction=bias
+                )
+                if wyckoff_veto and wyckoff_veto.is_vetoed:
+                    active_vetoes.append(f"{wyckoff_veto.veto_name}: {wyckoff_veto.reason}")
+                    reasons.append(f"VETO: {wyckoff_veto.veto_name}")
+                    if wyckoff_veto.severity == "hard":
+                        score = round(score * 0.25, 1)
+                        is_vetoed = True
+
             trigger = "; ".join(reasons) if reasons else "Range Compression / Routine Observation"
 
             return ScanOpportunity(
@@ -222,6 +244,8 @@ class ScannerService:
                 factor_composite=factors.get("composite_alpha_score", 0.0),
                 volatility_gate=round(vol_gate, 2),
                 volume_zscore=round(vol_z, 2),
+                is_vetoed=is_vetoed,
+                vetoes=tuple(active_vetoes),
             )
         except Exception:
             return None
