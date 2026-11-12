@@ -33,3 +33,4 @@ def test_financial_turbulence_detects_systemic_shock():
     assert report.historical_percentile >= 90.0
     assert report.turbulence_gate < 1.0
     assert report.is_elevated is True or report.is_crisis_alert is True
+

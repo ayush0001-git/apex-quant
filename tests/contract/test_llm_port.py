@@ -1,4 +1,4 @@
-﻿# apex-quant/tests/contract/test_llm_port.py
+# apex-quant/tests/contract/test_llm_port.py
 """Contract tests asserting LLMPort two-tier separation rules."""
 import asyncio
 from datetime import datetime

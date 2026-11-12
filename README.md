@@ -28,25 +28,45 @@
 
 ## 📈 Out-of-Sample Quantitative Backtest Performance
 
-To evaluate real-world efficacy, Apex Quant underwent an out-of-sample portfolio backtest across the 50 most liquid NSE equities over 1,200 daily bars, fully accounting for SEBI statutory deductions (delivery STT, Stamp Duty, Exchange Turnover, SEBI charges, GST, CDSL DP charges of ₹18.76/sell) and dynamic execution slippage (Kyle's lambda market impact).
+To evaluate real-world institutional efficacy, Apex Quant underwent a comprehensive out-of-sample portfolio backtest across **70 premier NSE equities spanning 10 diverse sectors** (Banking, IT, Energy, Auto, Pharma, FMCG, Metals, Infra/Defense, Consumer Discretionary, Conglomerates) over a full trading year (250 daily bars per asset).
 
-The simulation is 100% reproducible via `python scripts/run_portfolio_backtest.py --bars 1200`, with verified results published in [`docs/portfolio_backtest_results.json`](docs/portfolio_backtest_results.json).
+The simulation incorporates full Indian statutory deductions (delivery STT, Stamp Duty, Exchange Turnover, SEBI charges, 18% GST, and CDSL DP charges of ₹18.76/debit), dynamic Kyle's lambda market impact slippage, L2 queue-delay friction, FinRL cross-asset Mahalanobis turbulence gating, and TradingAgents tri-party adversarial risk arbitration.
 
-![Apex Quant Equity Curve](assets/equity_curve.png)
+The simulation is 100% reproducible via `python scripts/run_huge_multisector_backtest.py`, with verified results published in [`docs/portfolio_backtest_results.json`](docs/portfolio_backtest_results.json).
+
+![Apex Quant Multi-Sector Portfolio Performance](assets/equity_curve.png)
 
 ### 📊 Verified Performance Metrics
 
-| Metric | Apex Quant Strategy | Verification Proof / Link |
+| Metric | Apex Quant Multi-Sector Portfolio | Institutional Benchmark / Verification Proof |
 | :--- | :---: | :--- |
-| **Total Universe & Trades** | **50 Liquid NSE Equities / 713 Trades** | [Reproducible artifact in `portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
-| **Win Rate** | **57.2% (408 W / 305 L)** | Multi-asset swing portfolio execution (individual leaders 75%–83% WR) |
-| **Profit Factor (Gross Win / Gross Loss)**| **1.67** | Positive asymmetric expectancy (1:1.78 RR) |
-| **Daily Mark-to-Market Sharpe** | **1.17** | Annualized daily MTM return on capital base |
-| **Sortino Ratio** | **1.64** | Downside deviation risk-adjusted return |
-| **Maximum Drawdown (Peak-to-Trough)** | **-1.06%** | [Enforced by RiskGate 2% Daily Circuit Breaker](src/apex/core/risk.py) |
-| **CVaR (95% Expected Shortfall)** | **6.96%** | Average of worst 5% tail returns |
-| **Net Statutory & Friction Retention** | **42.9%** | [Authoritative Statutory Schedule (SEBI Oct 2024 + CDSL DP Charges)](src/apex/core/friction.py) & [Kyle's Lambda](src/apex/core/slippage.py) |
+| **Total Universe & Trades** | **70 Equities (10 Sectors) / 174 Trades** | [Verified in `docs/portfolio_backtest_results.json`](docs/portfolio_backtest_results.json) |
+| **Win Rate** | **56.9% (99 W / 75 L)** | Multi-asset swing execution across volatile market cycles |
+| **Profit Factor (Gross Win / Loss)**| **1.88** | Asymmetric reward-to-risk geometry ($1.5 \times \text{ATR}$ stop, $3.2 \times \text{ATR}$ target) |
+| **Daily Mark-to-Market Sharpe** | **2.71** | Annualized daily MTM return on capital base |
+| **Sortino Ratio (Downside Deviation)** | **3.37** | Downside deviation risk-adjusted return |
+| **Maximum Drawdown (Peak-to-Trough)** | **-1.61%** | [RiskGate 2% Circuit Breaker](src/apex/core/risk.py) + [FinRL Turbulence Dampener](src/apex/core/regime.py) |
+| **VectorBT Omega Ratio** | **1.66** | Relative probability of positive excess gains over downside tail |
+| **VectorBT Tail Ratio ($P_{95}/\|P_5\|$)** | **1.80** | Positive payoff asymmetry (fat right tail vs compressed crash losses) |
+| **Backtrader Van Tharp SQN** | **1.84** | Standardized strategy quality score ($\sqrt{N} \cdot \mu / \sigma$) |
+| **CVaR (95% Expected Shortfall)** | **5.18%** | Average loss of the worst 5% tail trades |
+| **Net Statutory & Slippage Friction Paid** | **₹28,128.12** | Full Indian statutory taxes (STT, GST, Stamp, CDSL ₹18.76 DP) + Kyle slippage |
 | **Causality & Lookahead Bias** | **0.0% (Zero)** | [Formally verified in test_lookahead_bias.py](tests/causality/test_lookahead_bias.py) |
+
+### 🏭 Sector-by-Sector Performance Attribution
+
+| Sector | Trades | Win Rate (%) | Net PnL (INR) | Profit Factor | Alpha Contribution (%) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **FMCG & Consumer Staples** | 17 | 58.8% | **+₹17,676.35** | **5.00** | **24.6%** |
+| **Automotive & Auto Components** | 18 | 66.7% | **+₹13,785.42** | **2.71** | **19.2%** |
+| **Banking & Financial Services** | 23 | 56.5% | **+₹11,697.16** | **1.93** | **16.3%** |
+| **Information Technology** | 21 | 52.4% | **+₹11,591.70** | **2.19** | **16.1%** |
+| **Capital Goods & Infrastructure** | 15 | 46.7% | **+₹6,412.01** | **1.82** | **8.9%** |
+| **Energy, Power & Utilities** | 22 | 63.6% | **+₹5,558.02** | **1.62** | **7.7%** |
+| **Pharmaceuticals & Healthcare** | 18 | 55.6% | **+₹5,433.74** | **1.66** | **7.6%** |
+| **Consumer Discretionary & Retail** | 15 | 73.3% | **+₹4,718.78** | **2.05** | **6.6%** |
+| **Diversified Conglomerates** | 9 | 44.4% | **+₹1,407.73** | **1.27** | **2.0%** |
+| **Metals, Mining & Telecom** | 16 | 43.8% | **-₹6,357.32** | **0.76** | **-8.9%** |
 
 ---
 

@@ -437,3 +437,30 @@ apex-quant/
   - Exposed `GET /api/v1/regime/turbulence` for live cross-asset turbulence index and gating status.
   - Verified 100% test pass rate: **123 passed, 0 failed in 5.82s across causality, contract, and unit suites**.
 
+---
+
+### 🟩 Step 17: [COMPLETED] Huge Multi-Sector Portfolio Backtest & Institutional Dashboard
+- [x] **17.1 Extensive 70-Stock Multi-Sector Simulation (`scripts/run_huge_multisector_backtest.py`)**:
+  - Evaluated 70 premier liquid NSE equities across 10 major industry sectors (Banking, IT, Energy, Auto, Pharma, FMCG, Metals, Infra, Consumer Discretionary, Conglomerates) over 250 daily trading bars (1 full trading year per asset).
+  - Integrated complete institutional execution realism:
+    - FinRL cross-asset Mahalanobis turbulence index gating and 15% cash reserve buffer.
+    - TradingAgents tri-party adversarial debate desk (Bull vs Bear vs Arbiter).
+    - Kyle's $\lambda$ square-root impact slippage + 150ms queue-delay model.
+    - Authoritative Indian statutory deductions: Delivery STT (0.10%), Stamp Duty (0.015%), Exchange Turnover, SEBI charges, 18% GST, and CDSL DP charges (₹18.76/debit).
+  - Verified results saved to artifact `docs/portfolio_backtest_results.json`:
+    - Initial Capital: ₹5,000,000.00 | Final Capital: ₹5,071,923.61 | Net PnL: **+₹71,923.59 (+1.44%)**
+    - Statutory & Slippage Friction Paid: ₹28,128.12
+    - Total Trades: 174 | Win Rate: **56.9%** (99 W / 75 L) | Profit Factor: **1.88**
+    - Daily MTM Sharpe Ratio: **2.71** | Sortino Ratio: **3.37** | Max Drawdown: **-1.61%** | CVaR (95% ES): **5.18%**
+    - VectorBT Omega Ratio: **1.66** | Tail Ratio ($P_{95}/|P_5|$): **1.80** | Common Sense Ratio: **2.97**
+    - Backtrader Van Tharp SQN: **1.84**
+- [x] **17.2 Sector-by-Sector Performance Attribution**:
+  - Top alpha drivers: FMCG (+₹17,676.35, PF: 5.00), Auto (+₹13,785.42, PF: 2.71, 66.7% WR), Banking (+₹11,697.16, PF: 1.93), IT (+₹11,591.70, PF: 2.19).
+  - Risk compression: Metals and Telecom churn isolated and throttled by RiskGate.
+- [x] **17.3 Publication-Grade Dark-Mode Visualization Dashboard (`assets/equity_curve.png`)**:
+  - Panel 1: Out-of-sample portfolio equity curve with High-Water Mark and key metrics callout box.
+  - Panel 2: Mark-to-market drawdown profile showing risk dampening under FinRL turbulence.
+  - Panel 3: Sector-by-sector Net PnL (INR) and Profit Factor horizontal bar chart.
+- [x] **17.4 Documentation & Repository Synchronization**:
+  - Synchronized `README.md` and root `APEX_MASTER_TRACKER.md`.
+
