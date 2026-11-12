@@ -260,3 +260,111 @@ class RegimeClassifier:
             slope = (0.20 - 1.0) / (panic_vol_pct - baseline_vol_pct)
             gate = 1.0 + slope * (current_vol_pct - baseline_vol_pct)
             return round(float(max(0.20, min(1.0, gate))), 3)
+
+
+@dataclass(frozen=True)
+class FinancialTurbulenceReport:
+    """Multi-asset cross-sectional financial turbulence report (Kritzman & Li 2010 / FinRL)."""
+    current_turbulence_score: float     # Mahalanobis distance / asset count
+    historical_percentile: float        # Percentile rank [0.0, 100.0]
+    turbulence_gate: float              # Damping multiplier [0.20, 1.0]
+    is_crisis_alert: bool               # True if percentile >= 95.0
+    is_elevated: bool                   # True if percentile >= 75.0
+    assets_analyzed: int
+    mean_historical_turbulence: float
+
+
+class FinancialTurbulenceEngine:
+    """Calculates Kritzman & Li (2010) Mahalanobis Financial Turbulence across asset portfolios.
+
+    Inspired by FinRL's multi-stock environment turbulence threshold:
+        Turbulence_t = (y_t - mu) @ Sigma^{-1} @ (y_t - mu).T / K
+    Measures statistical abnormality in joint asset return distributions, detecting correlation
+    breakdowns, systemic shocks, and regime breaks before they appear in single-asset indicators.
+    """
+
+    @classmethod
+    def calculate_turbulence_vector(
+        cls,
+        returns_matrix: np.ndarray,
+        window: int = 60,
+    ) -> np.ndarray:
+        """Compute rolling cross-asset turbulence vector across time periods.
+
+        Args:
+            returns_matrix: (T, K) 2D array of asset returns over T time periods across K assets.
+            window: Rolling lookback window for historical mean vector and covariance matrix.
+        """
+        arr = np.asarray(returns_matrix, dtype=float)
+        t, k = arr.shape
+        if t < 10 or k < 2:
+            return np.ones(t, dtype=float)
+
+        effective_window = min(window, max(15, t // 2))
+        turbulence = np.zeros(t, dtype=float)
+
+        for i in range(effective_window, t):
+            hist = arr[i - effective_window : i]
+            mu = np.mean(hist, axis=0)
+            cov = np.cov(hist, rowvar=False)
+
+            # Add small Tikhonov regularization for matrix inversion stability
+            reg_cov = cov + np.eye(k) * 1e-6
+            try:
+                inv_cov = np.linalg.pinv(reg_cov)
+            except np.linalg.LinAlgError:
+                inv_cov = np.eye(k)
+
+            diff = arr[i] - mu
+            dist = float(diff @ inv_cov @ diff.T) / float(k)
+            turbulence[i] = max(0.0, dist)
+
+        # Backfill initial window with the first valid observation
+        if effective_window < t:
+            turbulence[:effective_window] = turbulence[effective_window]
+
+        return np.round(turbulence, 3)
+
+    @classmethod
+    def analyze_cross_asset_turbulence(
+        cls,
+        returns_matrix: np.ndarray,
+        window: int = 60,
+    ) -> FinancialTurbulenceReport:
+        """Analyze current market turbulence state against historical empirical distribution."""
+        turb_vec = cls.calculate_turbulence_vector(returns_matrix, window)
+        current = float(turb_vec[-1]) if len(turb_vec) > 0 else 1.0
+        n_assets = returns_matrix.shape[1] if returns_matrix.ndim == 2 else 1
+
+        if len(turb_vec) >= 20:
+            hist_scores = turb_vec[:-1]
+            pct_rank = float(np.sum(hist_scores <= current) / len(hist_scores)) * 100.0
+            mean_turb = float(np.mean(hist_scores))
+        else:
+            pct_rank = 50.0
+            mean_turb = current
+
+        # Dynamic Gating: Dampen risk when turbulence crosses statistical risk thresholds
+        is_crisis = pct_rank >= 95.0
+        is_elevated = pct_rank >= 75.0
+
+        if is_crisis:
+            # Extreme systemic shock: slash position sizing to 0.25x
+            gate = 0.25
+        elif is_elevated:
+            # Elevated caution: scale down linearly from 1.0 to 0.50
+            slope = (0.50 - 1.0) / (95.0 - 75.0)
+            gate = 1.0 + slope * (pct_rank - 75.0)
+        else:
+            gate = 1.0
+
+        return FinancialTurbulenceReport(
+            current_turbulence_score=round(current, 2),
+            historical_percentile=round(pct_rank, 1),
+            turbulence_gate=round(float(max(0.20, min(1.0, gate))), 2),
+            is_crisis_alert=is_crisis,
+            is_elevated=is_elevated,
+            assets_analyzed=n_assets,
+            mean_historical_turbulence=round(mean_turb, 2),
+        )
+

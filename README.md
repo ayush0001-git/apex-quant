@@ -150,6 +150,7 @@ Apex Quant exposes a clean, read-only REST and WebSocket surface via FastAPI for
 | `GET` | `/api/v1/signals/active` | Current approved swing setups with bracket order parameters |
 | `POST`| `/api/v1/advisor/chat` | Conversational AI risk & market regime advisor (English & Hinglish) |
 | `GET` | `/api/v1/regime/hmm` | Real-time Gaussian HMM 3-state regime posterior probabilities & volatility gate |
+| `GET` | `/api/v1/regime/turbulence`| Kritzman & Li (2010) Mahalanobis cross-asset financial turbulence (FinRL) |
 | `GET` | `/api/v1/options/chain` | Black-Scholes Greeks (Delta/Gamma/Vega/Theta), IV surface, PCR & Net GEX |
 | `GET` | `/api/v1/fundamentals` | Piotroski 9-point score, valuation multiples, and FII/DII shareholding drift |
 | `POST`| `/api/v1/tca/report` | Implementation Shortfall (Perold 1988) execution quality & regime drift |

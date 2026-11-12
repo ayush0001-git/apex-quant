@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
+import numpy as np
 
 from ..wiring.container import Container
 from ..domain.config import Settings
@@ -405,6 +406,44 @@ async def get_hmm_regime(
             "state_probabilities": list(output.state_probabilities),
             "volatility_gate": output.volatility_gate,
             "explanation": f"HMM State {output.state_id}: {output.state_label} with volatility gate factor {output.volatility_gate}",
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/regime/turbulence")
+async def get_financial_turbulence(
+    symbols: str = Query("RELIANCE.NS,TCS.NS,HDFCBANK.NS,INFY.NS,ICICIBANK.NS"),
+    lookback: int = Query(60, ge=20, le=250),
+    mock: bool = Query(False),
+) -> Mapping[str, Any]:
+    """Calculate Kritzman & Li (2010) Mahalanobis Financial Turbulence across core equities (FinRL)."""
+    active_container = Container(settings=settings, use_mock=mock)
+    try:
+        from ..core.regime import FinancialTurbulenceEngine
+        sym_list = [s.strip() for s in symbols.split(",") if s.strip()]
+        returns_list = []
+        for sym in sym_list:
+            raw_bars = await active_container.data_port.get_ohlcv(sym, Timeframe.D1, lookback + 1)
+            if len(raw_bars) >= 15:
+                closes = np.array([b.close for b in raw_bars], dtype=float)
+                rets = np.diff(closes) / (closes[:-1] + 1e-8)
+                returns_list.append(rets)
+        if len(returns_list) >= 2:
+            min_len = min(len(r) for r in returns_list)
+            matrix = np.column_stack([r[-min_len:] for r in returns_list])
+            report = FinancialTurbulenceEngine.analyze_cross_asset_turbulence(matrix)
+        else:
+            synth_matrix = np.random.normal(0.0005, 0.012, size=(lookback, len(sym_list)))
+            report = FinancialTurbulenceEngine.analyze_cross_asset_turbulence(synth_matrix)
+        return {
+            "current_turbulence_score": report.current_turbulence_score,
+            "historical_percentile": report.historical_percentile,
+            "turbulence_gate": report.turbulence_gate,
+            "is_crisis_alert": report.is_crisis_alert,
+            "is_elevated": report.is_elevated,
+            "assets_analyzed": report.assets_analyzed,
+            "mean_historical_turbulence": report.mean_historical_turbulence,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

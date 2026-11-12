@@ -244,3 +244,13 @@ def test_api_data_quality():
     assert data["symbol"] == "RELIANCE.NS"
     assert "is_valid" in data
     assert "corporate_action_suspected" in data
+
+
+def test_api_financial_turbulence():
+    res = client.get("/api/v1/regime/turbulence?symbols=RELIANCE.NS,TCS.NS&lookback=40&mock=true")
+    assert res.status_code == 200
+    data = res.json()
+    assert "current_turbulence_score" in data
+    assert "historical_percentile" in data
+    assert "turbulence_gate" in data
+    assert "is_crisis_alert" in data

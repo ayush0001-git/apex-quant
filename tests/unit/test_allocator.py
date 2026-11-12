@@ -1,5 +1,5 @@
 # apex-quant/tests/unit/test_allocator.py
-"""Unit tests for MultiStrategyAllocator (Risk Parity & Collinearity penalty)."""
+"""Unit tests for MultiStrategyAllocator (Risk Parity, Collinearity, FinRL Cash & VectorBT Tail Asymmetry)."""
 import numpy as np
 import pytest
 from apex.core.allocator import MultiStrategyAllocator, StrategyAllocationReport
@@ -51,3 +51,41 @@ def test_multi_strategy_allocator_penalizes_collinear_strategies():
     s1_profile = next(s for s in report.strategies if s.strategy_id == "s1")
     assert s3_profile.allocated_weight_pct > s1_profile.allocated_weight_pct
 
+
+def test_multi_strategy_allocator_finrl_cash_reserve():
+    """Verify FinRL cash buffer carves out liquidity reserve before allocation."""
+    allocator = MultiStrategyAllocator()
+    s1 = list(np.random.normal(0.001, 0.01, 50))
+    s2 = list(np.random.normal(0.001, 0.01, 50))
+    
+    report = allocator.allocate_capital(
+        {"s1": s1, "s2": s2},
+        total_equity=100000.0,
+        cash_reserve_pct=0.15,
+    )
+    
+    assert report.cash_reserve_inr == 15000.0
+    assert report.cash_reserve_pct == 15.0
+    # Allocated capital across strategies should sum to active equity (85,000)
+    total_allocated = sum(s.allocated_capital_inr for s in report.strategies)
+    assert 84900.0 <= total_allocated <= 85100.0
+
+
+def test_multi_strategy_allocator_vectorbt_tail_asymmetry():
+    """Verify VectorBT tail-asymmetry adjustment rewards positive right-tail payoffs."""
+    allocator = MultiStrategyAllocator()
+    np.random.seed(42)
+    
+    # Strat A: Positive asymmetric right tail (big winners, small losses)
+    strat_a = list(np.concatenate([np.random.exponential(0.03, 60), -np.random.exponential(0.01, 40)]))
+    # Strat B: Negative asymmetric left tail (small wins, big crash losses)
+    strat_b = list(np.concatenate([np.random.exponential(0.01, 60), -np.random.exponential(0.03, 40)]))
+    
+    report_unadjusted = allocator.allocate_capital({"a": strat_a, "b": strat_b}, tail_risk_adjustment=False)
+    report_adjusted = allocator.allocate_capital({"a": strat_a, "b": strat_b}, tail_risk_adjustment=True)
+    
+    a_unadj = next(s for s in report_unadjusted.strategies if s.strategy_id == "a").allocated_weight_pct
+    a_adj = next(s for s in report_adjusted.strategies if s.strategy_id == "a").allocated_weight_pct
+    
+    # Positively asymmetric strategy A receives higher weight when tail risk adjustment is active
+    assert a_adj > a_unadj

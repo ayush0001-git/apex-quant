@@ -410,3 +410,30 @@ apex-quant/
 - [x] **15.3 Dynamic 2-Week Swing Horizon & Target Analysis**:
   - Implemented 10-bar swing window with $+3.0 \times \text{ATR}$ target expansion, capturing $+6\%$ to $+8\%$ swings (+₹700 to +₹800 net per winning trade) and achieving a 9-win momentum surge (+17.4% account gain).
 
+---
+
+### 🟩 Step 16: [COMPLETED] Open-Source Institutional Synthesis: FinRL, VectorBT, Backtrader & TradingAgents Integration
+- [x] **16.1 FinRL Cross-Asset Financial Turbulence & Liquidity Reserves (`core/regime.py`, `core/allocator.py`)**:
+  - Implemented Kritzman & Li (2010) Mahalanobis cross-asset return distance $\text{Turbulence}_t = \frac{(y_t - \mu)^T \Sigma^{-1} (y_t - \mu)}{K}$.
+  - Dynamic turbulence gating: slashes portfolio risk multiplier down to $[0.20, 1.0]$ when multi-asset correlation collapses past the 95th percentile historical threshold.
+  - FinRL cash reserve buffer: Carves out dedicated defensive liquidity reserve ($15\%–20\%$) to absorb macro regime drawdown shocks before risk allocation.
+- [x] **16.2 VectorBT Non-Normal Asymmetric Payoff Suite (`core/validation.py`, `core/allocator.py`)**:
+  - Replaced standard Gaussian-only metrics with full non-normal distribution analytics:
+    - **Omega Ratio**: Relative probability of positive excess gains vs. downside losses partitioned around hurdle rate.
+    - **Tail Ratio**: Ratio of 95th percentile extreme right-tail win over 5th percentile left-tail loss ($P_{95} / |P_5|$).
+    - **Common Sense Ratio (CSR)**: Tail Ratio $\times$ Gain-to-Pain Ratio.
+    - **Calmar Ratio**: Annualized return over maximum drawdown.
+  - Multi-Strategy Allocator Tail Asymmetry scaling: Allocates greater weight to strategies demonstrating fat right tails ($\text{weight} \propto \sqrt{\text{Tail Ratio}}$).
+- [x] **16.3 Backtrader Statistical Strategy Quality Scoring (`core/validation.py`)**:
+  - **Van Tharp System Quality Number (SQN)**: $\text{SQN} = \sqrt{N} \times \frac{\mu}{\sigma}$ across trade PnLs, providing standardized institutional grading ($<1.6$ uninvestable, $2.0–2.4$ average, $2.5–2.9$ good, $\ge 3.0$ excellent).
+  - **Variability-Weighted Return (VWR)**: Penalizes jagged, volatile equity curves relative to a smooth compound growth path.
+- [x] **16.4 TradingAgents Dialectic Tri-Party Adversarial Risk Desk (`adapters/llm/paid_gate.py`)**:
+  - Built an adversarial 3-agent dialectic consensus architecture into `PaidGateAdapter`:
+    - **Aggressive Bull**: Evaluates upside breakout velocity, volume thrust, and asymmetric risk-reward targets.
+    - **Conservative Bear**: Challenges late extension traps, adverse liquidity overhead, and statutory friction hurdles.
+    - **Neutral Risk Arbiter**: Computes mathematical conviction $[0, 100]$ and bounded confidence $[-1.0, 1.0]$.
+  - Complete fail-closed timeout protection (30s) and deterministic fallbacks.
+- [x] **16.5 REST API Surface Expansion & Full Test Verification**:
+  - Exposed `GET /api/v1/regime/turbulence` for live cross-asset turbulence index and gating status.
+  - Verified 100% test pass rate: **123 passed, 0 failed in 5.82s across causality, contract, and unit suites**.
+

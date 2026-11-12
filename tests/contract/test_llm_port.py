@@ -49,3 +49,6 @@ def test_paid_gate_synthesize_success():
     result = asyncio.run(gate.synthesize("TCS.NS", features, forecast))
     assert result is not None
     assert result.action.value in ["LONG", "SHORT", "HOLD"]
+    assert "aggressive_bull" in result.agent_scores
+    assert "conservative_bear" in result.agent_scores
+    assert "neutral_arbiter" in result.agent_scores
